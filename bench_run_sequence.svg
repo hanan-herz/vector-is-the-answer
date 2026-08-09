@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1060" height="660" viewBox="0 0 1060 660" font-family="-apple-system, 'Helvetica Neue', Arial, sans-serif">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
+    </marker>
+    <filter id="soft" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="#0f172a" flood-opacity="0.10"/>
+    </filter>
+  </defs>
+
+  <rect width="1060" height="660" fill="#ffffff"/>
+
+  <text x="530" y="36" text-anchor="middle" font-size="19" font-weight="700" fill="#0f172a">bench.py — one run, five stages</text>
+  <text x="530" y="58" text-anchor="middle" font-size="12" fill="#64748b">DeepSeek-V4-Flash-0731 · BoolQ (9427 / 3270) · Modal B300 · one-pass readout vs fair loop</text>
+
+  <!-- legend -->
+  <rect x="40" y="74" width="13" height="13" rx="3" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="60" y="85" font-size="11.5" fill="#475569">GPU — model forward</text>
+  <rect x="240" y="74" width="13" height="13" rx="3" fill="#ecfdf5" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="260" y="85" font-size="11.5" fill="#475569">CPU — cached vectors</text>
+  <rect x="440" y="74" width="13" height="13" rx="3" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="460" y="85" font-size="11.5" fill="#475569">artifact out</text>
+
+  <!-- ===== Stage 1 (GPU) ===== -->
+  <g filter="url(#soft)">
+    <rect x="40" y="104" width="980" height="70" rx="12" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.5"/>
+  </g>
+  <circle cx="72" cy="139" r="15" fill="#7c3aed"/>
+  <text x="72" y="144" text-anchor="middle" font-size="14" font-weight="700" fill="#ffffff">1</text>
+  <text x="100" y="132" font-size="13.5" font-weight="700" fill="#3b0764">Load frozen model</text>
+  <text x="100" y="153" font-size="11.5" fill="#6d28d9">mount DeepSeek-V4-Flash-0731 from the /weights volume → CUDA (FP8, DeepGEMM off)</text>
+
+  <line x1="530" y1="174" x2="530" y2="196" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#ar)"/>
+
+  <!-- ===== Stage 2 (GPU, the heavy one) ===== -->
+  <g filter="url(#soft)">
+    <rect x="40" y="200" width="980" height="86" rx="12" fill="#ede9fe" stroke="#7c3aed" stroke-width="2.25"/>
+  </g>
+  <circle cx="72" cy="243" r="15" fill="#7c3aed"/>
+  <text x="72" y="248" text-anchor="middle" font-size="14" font-weight="700" fill="#ffffff">2</text>
+  <text x="100" y="230" font-size="13.5" font-weight="700" fill="#3b0764">Forward pass — the expensive one</text>
+  <text x="100" y="251" font-size="11.5" fill="#6d28d9">run all 9427 train + 3270 val prompts once → capture the final-token residual</text>
+  <text x="100" y="271" font-size="11.5" fill="#6d28d9">= last_* vectors (~1.7 GB) + mean-pooled ctx_* · cached to t9427_v3270_l*_p384.npz</text>
+
+  <line x1="530" y1="286" x2="530" y2="308" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#ar)"/>
+
+  <!-- ===== Stages 3 + 4 (CPU, side by side) ===== -->
+  <g filter="url(#soft)">
+    <rect x="40" y="312" width="470" height="86" rx="12" fill="#ecfdf5" stroke="#16a34a" stroke-width="1.5"/>
+  </g>
+  <circle cx="72" cy="355" r="15" fill="#16a34a"/>
+  <text x="72" y="360" text-anchor="middle" font-size="14" font-weight="700" fill="#ffffff">3</text>
+  <text x="100" y="342" font-size="13.5" font-weight="700" fill="#14532d">One-pass readouts</text>
+  <text x="100" y="363" font-size="11.5" fill="#15803d">fit linear + MLP heads on cached last_*</text>
+  <text x="100" y="383" font-size="11.5" fill="#15803d">→ last / ctx · randproj · shuffle-null · budget</text>
+
+  <g filter="url(#soft)">
+    <rect x="530" y="312" width="490" height="86" rx="12" fill="#ecfdf5" stroke="#16a34a" stroke-width="1.5"/>
+  </g>
+  <circle cx="562" cy="355" r="15" fill="#16a34a"/>
+  <text x="532" y="360" text-anchor="middle" font-size="14" font-weight="700" fill="#ffffff">4</text>
+  <text x="590" y="342" font-size="13.5" font-weight="700" fill="#14532d">Budget + strata</text>
+  <text x="590" y="363" font-size="11.5" fill="#15803d">MLP at n=64 / 256 / 9427 and per stratum</text>
+  <text x="590" y="383" font-size="11.5" fill="#15803d">→ budget · question-len · passage-len · label</text>
+
+  <line x1="530" y1="398" x2="530" y2="420" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#ar)"/>
+
+  <!-- ===== Stage 5 (GPU again) ===== -->
+  <g filter="url(#soft)">
+    <rect x="40" y="424" width="980" height="86" rx="12" fill="#ede9fe" stroke="#7c3aed" stroke-width="2.25"/>
+  </g>
+  <circle cx="72" cy="467" r="15" fill="#7c3aed"/>
+  <text x="72" y="472" text-anchor="middle" font-size="14" font-weight="700" fill="#ffffff">5</text>
+  <text x="100" y="452" font-size="13.5" font-weight="700" fill="#3b0764">Loop baseline — the GPU's second real job</text>
+  <text x="100" y="473" font-size="11.5" fill="#6d28d9">re-score the readout on the loop's rows (last.mlp, n=3270) · warm up FP8 kernels</text>
+  <text x="100" y="493" font-size="11.5" fill="#6d28d9">stream all 3270 (batch=8, loop pad 2048) → next-token log-prob over Yes/No → loop.zero / loop.8</text>
+
+  <line x1="530" y1="510" x2="530" y2="532" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#ar)"/>
+
+  <!-- ===== Output ===== -->
+  <g filter="url(#soft)">
+    <rect x="330" y="536" width="400" height="66" rx="12" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+  </g>
+  <text x="530" y="564" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1f2937">results_&lt;run_id&gt;.json</text>
+  <text x="530" y="585" text-anchor="middle" font-size="11.5" fill="#64748b">per-run copy + results.jsonl stages · persisted to the bench-results volume</text>
+
+  <text x="530" y="640" text-anchor="middle" font-size="10.5" fill="#94a3b8">Stages 3–4 run on cached vectors — the GPU idles between the one big forward (2) and the loop (5). Only the loop pays a second pass over the data.</text>
+</svg>

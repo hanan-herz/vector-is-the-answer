@@ -1,0 +1,51 @@
+{
+  "meta": {
+    "model": "0.6B",
+    "model_id": "Qwen/Qwen3-0.6B",
+    "layer": 27,
+    "closed_train": 1200,
+    "closed_val": 600,
+    "n_open": 68,
+    "n_open_fit": 40,
+    "n_open_eval": 28,
+    "open_sample": [
+      "Explain how the digestive system works from mouth to intestines.",
+      "Why does the sky change color at sunset and sunrise?",
+      "Describe how a refrigerator keeps food cold using a heat pump cycle."
+    ]
+  },
+  "gate_geometric": {
+    "closed_train_covered_mean": -508.0271911621094,
+    "closed_val_covered_mean": -507.3152160644531,
+    "open_eval_covered_mean": -3061.869384765625,
+    "anchored_thresholds": {
+      "p50": -461.4371032714844,
+      "p80": -350.93017578125,
+      "p95": -284.5342712402344
+    }
+  },
+  "gate_trained_train": {
+    "closed_misclassified_as_open": 0.0,
+    "open_misclassified_as_closed": 0.0
+  },
+  "answer_when_kept_geometric@0.7": {
+    "boolq": {
+      "acc_all": 0.765,
+      "acc_kept": 0.7295081967213115,
+      "keep_rate": 0.61,
+      "n_kept": 122
+    },
+    "ruletaker": {
+      "acc_all": 0.65,
+      "acc_kept": 0.6666666666666666,
+      "keep_rate": 0.555,
+      "n_kept": 111
+    },
+    "arc": {
+      "acc_all": 0.46,
+      "acc_kept": 0.3953488372093023,
+      "keep_rate": 0.43,
+      "n_kept": 86
+    }
+  }
+}

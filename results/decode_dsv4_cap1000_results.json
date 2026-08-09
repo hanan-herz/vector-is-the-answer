@@ -1,0 +1,24 @@
+{
+  "meta": {
+    "run_id": "ap-xDnS2xG9Rt1AyVdHzvZxdH",
+    "script": "cloud/decode_measure.py",
+    "model": "deepseek-ai/DeepSeek-V4-Flash-0731",
+    "format": "plain prompt (fmt_example: Passage:/Question:/Answer:)",
+    "decode": "greedy, do_sample=False, max_new_tokens=cap",
+    "dataset": "google/boolq validation[:8]",
+    "caps": [1000],
+    "n": 8
+  },
+  "self_terminated": 1,
+  "hit_final_cap": 7,
+  "rows": {
+    "0": {"cap": 1000, "hit_cap": true},
+    "1": {"cap": 1000, "hit_cap": true},
+    "2": {"cap": 1000, "hit_cap": true},
+    "3": {"cap": 1000, "hit_cap": true},
+    "4": {"cap": 1000, "hit_cap": true},
+    "5": {"cap": 1000, "hit_cap": true},
+    "6": {"cap": 1000, "hit_cap": true},
+    "7": {"cap": 1000, "first_eos": 49, "hit_cap": false}
+  }
+}

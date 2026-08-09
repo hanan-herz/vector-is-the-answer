@@ -1,0 +1,178 @@
+{
+  "meta": {
+    "model": "0.6B",
+    "model_id": "Qwen/Qwen3-0.6B",
+    "layer": 27,
+    "val_per_task": 200,
+    "arc_full": false
+  },
+  "pairs": {
+    "boolq:loop.zero": {
+      "n": 200,
+      "head_acc": 0.765,
+      "loop_acc": 0.665,
+      "diff_head_minus_loop": 0.09999999999999998,
+      "diff_ci95": [
+        0.02,
+        0.18
+      ],
+      "mcnemar_b": 45,
+      "mcnemar_c": 25,
+      "mcnemar_discordant": 70,
+      "mcnemar_p": 0.02246,
+      "head_better": true,
+      "loop_better": false,
+      "significant95": true,
+      "significant95_mcnemar": true,
+      "significant95_ci": true
+    },
+    "boolq:loop.8": {
+      "n": 200,
+      "head_acc": 0.765,
+      "loop_acc": 0.675,
+      "diff_head_minus_loop": 0.08999999999999997,
+      "diff_ci95": [
+        0.01,
+        0.17
+      ],
+      "mcnemar_b": 42,
+      "mcnemar_c": 24,
+      "mcnemar_discordant": 66,
+      "mcnemar_p": 0.03558,
+      "head_better": true,
+      "loop_better": false,
+      "significant95": true,
+      "significant95_mcnemar": true,
+      "significant95_ci": true
+    },
+    "ruletaker:loop.zero": {
+      "n": 200,
+      "head_acc": 0.65,
+      "loop_acc": 0.59,
+      "diff_head_minus_loop": 0.06000000000000005,
+      "diff_ci95": [
+        -0.025,
+        0.145
+      ],
+      "mcnemar_b": 43,
+      "mcnemar_c": 31,
+      "mcnemar_discordant": 74,
+      "mcnemar_p": 0.20068,
+      "head_better": true,
+      "loop_better": false,
+      "significant95": false,
+      "significant95_mcnemar": false,
+      "significant95_ci": false
+    },
+    "ruletaker:loop.8": {
+      "n": 200,
+      "head_acc": 0.65,
+      "loop_acc": 0.545,
+      "diff_head_minus_loop": 0.10499999999999998,
+      "diff_ci95": [
+        0.02,
+        0.19
+      ],
+      "mcnemar_b": 48,
+      "mcnemar_c": 27,
+      "mcnemar_discordant": 75,
+      "mcnemar_p": 0.0203,
+      "head_better": true,
+      "loop_better": false,
+      "significant95": true,
+      "significant95_mcnemar": true,
+      "significant95_ci": true
+    },
+    "arc:loop.zero": {
+      "n": 200,
+      "head_acc": 0.46,
+      "loop_acc": 0.515,
+      "diff_head_minus_loop": -0.05499999999999999,
+      "diff_ci95": [
+        -0.13,
+        0.02
+      ],
+      "mcnemar_b": 23,
+      "mcnemar_c": 34,
+      "mcnemar_discordant": 57,
+      "mcnemar_p": 0.18485,
+      "head_better": false,
+      "loop_better": true,
+      "significant95": false,
+      "significant95_mcnemar": false,
+      "significant95_ci": false
+    },
+    "arc:loop.8": {
+      "n": 200,
+      "head_acc": 0.46,
+      "loop_acc": 0.565,
+      "diff_head_minus_loop": -0.10499999999999993,
+      "diff_ci95": [
+        -0.19,
+        -0.025
+      ],
+      "mcnemar_b": 25,
+      "mcnemar_c": 46,
+      "mcnemar_discordant": 71,
+      "mcnemar_p": 0.01699,
+      "head_better": false,
+      "loop_better": true,
+      "significant95": true,
+      "significant95_mcnemar": true,
+      "significant95_ci": true
+    },
+    "POOLED:loop.8": {
+      "n": 600,
+      "head_acc": 0.625,
+      "loop_acc": 0.595,
+      "diff_head_minus_loop": 0.030000000000000027,
+      "diff_ci95": [
+        -0.016666666666666666,
+        0.07666666666666666
+      ],
+      "mcnemar_b": 115,
+      "mcnemar_c": 97,
+      "mcnemar_discordant": 212,
+      "mcnemar_p": 0.24292,
+      "head_better": true,
+      "loop_better": false,
+      "significant95": false,
+      "significant95_mcnemar": false,
+      "significant95_ci": false
+    },
+    "POOLED:loop.zero": {
+      "n": 600,
+      "head_acc": 0.625,
+      "loop_acc": 0.59,
+      "diff_head_minus_loop": 0.03500000000000003,
+      "diff_ci95": [
+        -0.011708333333333296,
+        0.08166666666666667
+      ],
+      "mcnemar_b": 111,
+      "mcnemar_c": 90,
+      "mcnemar_discordant": 201,
+      "mcnemar_p": 0.15817,
+      "head_better": true,
+      "loop_better": false,
+      "significant95": false,
+      "significant95_mcnemar": false,
+      "significant95_ci": false
+    }
+  },
+  "config": [
+    [
+      "boolq",
+      200
+    ],
+    [
+      "ruletaker",
+      200
+    ],
+    [
+      "arc",
+      200
+    ]
+  ],
+  "_note": "mcnemar_p = two-sided exact binomial CDF (2*P(X<=min(b,c))). "
+}

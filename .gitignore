@@ -1,0 +1,21 @@
+__pycache__/
+_modal/
+.modal/
+cloud_bench_cache/
+results_4b_residuals/
+results.json
+*.log
+weights/
+
+# macOS
+.DS_Store
+
+# LaTeX / paper build intermediates
+paper/*.aux
+paper/*.out
+paper/*.log
+paper/*.fdb_latexmk
+paper/*.fls
+paper/*.synctex.gz
+paper/*.bbl
+paper/*.blg
