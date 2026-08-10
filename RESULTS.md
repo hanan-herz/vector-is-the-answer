@@ -26,7 +26,12 @@ All four runs are **full-val (9427 train / 3270 val)**, loop
 or beats** a fairly-conditioned autoregressive loop on BoolQ — winning by +5pts
 at 0.6B, tying at 4B and 8B, and ~1pt behind the 5×-context few-shot loop
 (ahead of zero-shot) at frontier MoE — in a **single forward pass, no
-KV-cache**. The loop never cleanly beats the readout at any scale. Ext 13
+KV-cache**. The loop never cleanly beats the readout at any scale. That
+parity is not a null result: the loop here is not just a baseline, it is the
+*decoding interface* — and this readout **matches its classifier whilst
+replacing its generation** (see FLOPs, below). Readout and scoring-loop
+forward-passes are FLOP-equal; the saving is that the readout needs **no
+generated tokens at all**; a head instead of a decode loop. Ext 13
 makes this statistical: with the loop given 64 balanced exemplars and a
 4× budget (pad 8192), the readout's 0.6B win stays significant
 (+3.8pt over the best loop, McNemar p=2.4e-05) and 4B/8B are exact ties
