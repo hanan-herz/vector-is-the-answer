@@ -419,12 +419,6 @@ thesis is unhurt: **every** swept layer's readout beats the best 64-shot loop
 best tap widens the readout's lead to ~+4.7pt. Last-layer-by-default stands
 as a fine (if not provably optimal) choice.
 
-![Readout probe placement sweep — Qwen3-0.6B BoolQ](layersweep_06b.png)
-
-*Figure: one-pass readout accuracy vs tapped residual layer (mlp red,
-± per-seed std band; linear dashed). Loop arms (pad 8192, cached from Arm A)
-as horizontal references. Regenerate: `python plot_layersweep.py`.*
-
 ### Ext 14b — RuleTaker n2k, Qwen3-4B: the placement win IS significant here
 
 Same sweep on the second task + a larger model (Modal L40S, run_id
@@ -456,3 +450,11 @@ canonical 0.7427 within GPU-train nondeterminism.) Reading: the deeper the
 serial reasoning a task demands, the more the answer concentrates in
 mid-depth residuals — final-layer specialization toward next-token form costs
 more on RuleTaker than on BoolQ.
+
+![Readout probe placement sweeps — BoolQ 0.6B and RuleTaker 4B](layersweep_placement.png)
+
+*Figure: one-pass readout accuracy vs tapped residual layer at both scales
+(mlp red, ± per-seed std band; linear dashed; loop arms as horizontal
+references). Left: BoolQ 0.6B, placement gap ns (p=0.18). Right: RuleTaker
+4B, mid-depth tap significantly beats the final layer (+3.8pt, p=2.7e-03
+**). Regenerate: `python plot_layersweep.py`.*

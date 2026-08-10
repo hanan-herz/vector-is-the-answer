@@ -1,13 +1,16 @@
-"""Ext 14 — readout probe-placement sweep (layer sweep), BoolQ Qwen3-0.6B.
+"""Ext 14/14b — readout probe-placement sweeps (layer sweeps).
 
-One-pass readout accuracy as a function of the residual-stream layer the
-verdict head taps. Shows that the final layer (L27, the repo default) is NOT
-optimal: the mid-depth tap (~L18) reads out best. Loop arms (pad 8192, cached
-from Arm A / Ext 13) drawn as horizontal references for head-to-head context.
+Two panels: BoolQ Qwen3-0.6B (full val 9427/3270, taps 1/5/9/13/18/23/27) and
+RuleTaker n2k Qwen3-4B (2000/1000, taps 1/6/12/18/24/30/35). One-pass readout
+accuracy as a function of the residual-stream layer the verdict head taps.
+The repo default (final layer) is NOT optimal: mid-depth plateau at both
+scales; significant at 4B/RuleTaker (paired McNemar, same rows), ns at
+0.6B/BoolQ. Loop arms drawn as horizontal references for head-to-head context.
 
-Input:  results/boolq_layersweep_06b.json   (run 20260810T101123_e6f0a6,
-        full val 9427/3270, k_shots 0/8/16/32/64, loop_pad_max=8192)
-Output: layersweep_06b.png
+Inputs:
+  results/boolq_layersweep_06b.json{,_paired.json}   (run 20260810T104749_6aea90)
+  results/ruletaker_layersweep_4b.json{,_paired.json} (run 20260810T105307_b42924)
+Output: layersweep_placement.png
 """
 import json
 import matplotlib
@@ -15,73 +18,85 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-RUN = "results/boolq_layersweep_06b.json"
-OUT = "layersweep_06b.png"
 COL_MLP = "#d62728"
 COL_LIN = "#7f7f7f"
 COL_LOOP = "#1f77b4"
 
-d = json.load(open(RUN))
-ls = d["layer_sweep"]
-layers = sorted(ls.keys(), key=int)
-L = np.array([int(l) for l in layers])
-mlp = np.array([ls[l]["mlp"][0] for l in layers])
-mlp_sd = np.array([ls[l]["mlp"][1] for l in layers])
-lin = np.array([ls[l]["linear"] for l in layers])
+PANELS = [
+    dict(run="results/boolq_layersweep_06b.json",
+         paired="results/boolq_layersweep_06b_paired.json",
+         title="Qwen3-0.6B · BoolQ (full val, n=3270)",
+         loop_refs=[("loop.64", "best loop (64-shot)"), ("loop.zero", "loop.zero")]),
+    dict(run="results/ruletaker_layersweep_4b.json",
+         paired="results/ruletaker_layersweep_4b_paired.json",
+         title="Qwen3-4B · RuleTaker n2k (n=1000)",
+         loop_refs=[("loop.8", "loop.8 (400 rows)"), ("loop.zero", "loop.zero (400 rows)")]),
+]
 
-# loop references (cached from Arm A)
-loop64 = d["loop.64"]
-loop0 = d["loop.zero"]
 
-best_i = int(np.argmax(mlp))
-last_i = len(L) - 1
+def sig_stars(p):
+    return "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else "ns"
 
-fig, ax = plt.subplots(figsize=(8.2, 5.0))
 
-# mlp curve (primary) + per-seed std band
-ax.plot(L, mlp, "-o", color=COL_MLP, lw=2.0, ms=6, zorder=4,
-        label="readout mlp (per-seed mean)")
-ax.fill_between(L, mlp - mlp_sd, mlp + mlp_sd, color=COL_MLP, alpha=0.15)
-# linear probe (secondary)
-ax.plot(L, lin, "--s", color=COL_LIN, lw=1.4, ms=5, zorder=3,
-        label="readout linear probe")
+fig, axes = plt.subplots(1, 2, figsize=(13.5, 5.0))
 
-for x, y in zip(L, mlp):
-    ax.annotate(f"{y:.3f}", (x, y), textcoords="offset points",
-                xytext=(0, 9), ha="center", fontsize=8, color=COL_MLP)
+for ax, cfg in zip(axes, PANELS):
+    d = json.load(open(cfg["run"]))
+    paired = {r["pair"]: r for r in json.load(open(cfg["paired"]))["reports"]}
+    ls = d["layer_sweep"]
+    layers = sorted(ls.keys(), key=int)
+    L = np.array([int(l) for l in layers])
+    mlp = np.array([ls[l]["mlp"][0] for l in layers])
+    mlp_sd = np.array([ls[l]["mlp"][1] for l in layers])
+    lin = np.array([ls[l]["linear"] for l in layers])
 
-# loop references
-ax.axhline(loop64, color=COL_LOOP, ls="-.", lw=1.4, alpha=0.85,
-           label=f"best loop (64-shot) {loop64:.3f}")
-ax.axhline(loop0, color=COL_LOOP, ls=":", lw=1.2, alpha=0.6,
-           label=f"loop.zero {loop0:.3f}")
+    best_i = int(np.argmax(mlp))
+    last_i = len(L) - 1
 
-# optimum + final-layer markers
-ax.axvline(L[best_i], color=COL_MLP, ls=":", lw=1.0, alpha=0.5)
-ax.annotate(f"best tap L{L[best_i]} = {mlp[best_i]:.3f}",
-            xy=(L[best_i], mlp[best_i]), xytext=(L[best_i] - 4.2, mlp[best_i] + 0.016),
-            ha="center", fontsize=9, fontweight="bold", color=COL_MLP,
-            arrowprops=dict(arrowstyle="->", color=COL_MLP, lw=0.9))
-ax.annotate(f"final layer L{L[last_i]} = {mlp[last_i]:.3f}\n(repo default; "
-            f"{mlp[best_i]-mlp[last_i]:+.3f} below best)",
-            xy=(L[last_i], mlp[last_i]), xytext=(21.5, 0.686),
-            ha="center", fontsize=8.5, color="black",
-            bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="0.6", alpha=0.9),
-            arrowprops=dict(arrowstyle="->", color="black", lw=0.8))
+    ax.plot(L, mlp, "-o", color=COL_MLP, lw=2.0, ms=6, zorder=4,
+            label="readout mlp (per-seed mean)")
+    ax.fill_between(L, mlp - mlp_sd, mlp + mlp_sd, color=COL_MLP, alpha=0.15)
+    ax.plot(L, lin, "--s", color=COL_LIN, lw=1.4, ms=5, zorder=3,
+            label="readout linear probe")
+    for x, y in zip(L, mlp):
+        ax.annotate(f"{y:.3f}", (x, y), textcoords="offset points",
+                    xytext=(0, 9), ha="center", fontsize=8, color=COL_MLP)
 
-ax.set_xlabel("residual-stream layer tapped by the verdict head")
-ax.set_ylabel("BoolQ accuracy (full val, n=3270)")
-ax.set_title("Readout probe placement sweep — Qwen3-0.6B BoolQ\n"
-             "mid-depth tap beats the final layer; both beat the 64-shot loop",
-             fontsize=11.5)
-ax.set_xticks(L)
-ax.set_ylim(min(loop0, lin.min()) - 0.02, mlp.max() + 0.035)
-ax.grid(True, axis="y", ls=":", alpha=0.5)
-ax.legend(fontsize=8.5, loc="upper left", framealpha=0.9)
+    for j, (key, lab) in enumerate(cfg["loop_refs"]):
+        v = d[key]
+        ax.axhline(v, color=COL_LOOP, ls="-." if j == 0 else ":", lw=1.4,
+                   alpha=0.85 if j == 0 else 0.6, label=f"{lab} {v:.3f}")
 
+    ax.axvline(L[best_i], color=COL_MLP, ls=":", lw=1.0, alpha=0.5)
+
+    # paired McNemar: best tap vs final layer (same rows, seed-vote preds)
+    pair_key = f"readout.mlp.L{L[best_i]} vs readout.mlp.L{L[last_i]}"
+    r = paired[pair_key]
+    p, sym = r["mcnemar_p"], sig_stars(r["mcnemar_p"])
+    pstr = f"p={p:.1e}" if p < 0.01 else f"p={p:.2f}"
+    ax.annotate(
+        f"best tap L{L[best_i]} = {mlp[best_i]:.3f}\n"
+        f"vs final L{L[last_i]} = {mlp[last_i]:.3f}\n"
+        f"{r['diff']:+.3f}  {pstr} {sym}",
+        xy=(L[best_i], mlp[best_i]),
+        xytext=(0.52, 0.30), textcoords="axes fraction",
+        ha="left", fontsize=9, color="black",
+        bbox=dict(boxstyle="round,pad=0.35", fc="white", ec="0.6", alpha=0.92),
+        arrowprops=dict(arrowstyle="->", color="black", lw=0.8))
+
+    ax.set_xlabel("residual-stream layer tapped by the verdict head")
+    ax.set_title(cfg["title"], fontsize=12)
+    ax.set_xticks(L)
+    lo = min([d[k] for k, _ in cfg["loop_refs"]] + list(lin)) - 0.02
+    ax.set_ylim(lo, mlp.max() + 0.04)
+    ax.grid(True, axis="y", ls=":", alpha=0.5)
+
+axes[0].set_ylabel("accuracy")
+axes[0].legend(fontsize=8.5, loc="upper left", framealpha=0.9)
+axes[1].legend(fontsize=8.5, loc="lower right", framealpha=0.9)
+
+fig.suptitle("Readout probe placement sweep — mid-depth taps beat the final layer "
+             "(significant at 4B/RuleTaker, ns at 0.6B/BoolQ)", fontsize=13, y=1.02)
 fig.tight_layout()
-fig.savefig(OUT, dpi=150, bbox_inches="tight")
-print(f"saved {OUT}")
-print(f"best tap: L{L[best_i]} mlp={mlp[best_i]:.4f}  "
-      f"final L{L[last_i]} mlp={mlp[last_i]:.4f}  "
-      f"delta={mlp[best_i]-mlp[last_i]:+.4f}  best-loop={loop64:.4f}")
+fig.savefig("layersweep_placement.png", dpi=150, bbox_inches="tight")
+print("saved layersweep_placement.png")
