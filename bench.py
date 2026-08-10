@@ -1183,6 +1183,11 @@ def run_bench(size="0.6B", device=None, max_train=None, max_val=None,
             l for l in set(sweep_layers) if 0 <= l < n_layers_count)
         log(f"[2.5] readout placement sweep over layers {sweep_layers}")
         layer_sweep_res = {}
+        # Per-row preds of each layer's 4-seed ensemble (majority vote) -> one
+        # combined npz, so paired McNemar between taps (e.g. L18 vs L27) runs
+        # CPU-only off artifacts (rowpreds_stats.py --pairs). y_true is the
+        # full val — the same rows as the loop rowpreds npz.
+        sweep_rowpreds = {"y_true": np.asarray(yva, dtype=int)}
         for l in sweep_layers:
             _vc = load_cached_vectors(
                 max_train, max_val,
@@ -1201,20 +1206,44 @@ def run_bench(size="0.6B", device=None, max_train=None, max_val=None,
                               last_va=_lva, ctx_va=_cva,
                               ytr=ytr, yva=yva,
                               cache_dir=cache_dir, layer=l)
-            _r = readout_report(_ltr, ytr, _lva, yva, "last", rng,
-                                device=probe_dev, n_classes=n_classes)
+            _r, _artifacts = readout_report(
+                _ltr, ytr, _lva, yva, "last", rng, device=probe_dev,
+                return_artifacts=True, n_classes=n_classes)
+            # Persist the trained head at THIS layer (heads/head_l{l}.npz,
+            # same artifact format as the pipeline's final-layer head) so a
+            # winning mid-layer tap is deployable, not just measured.
+            _head_rel = save_heads(dirs["heads"], l, _artifacts)
+            _nets = mlp_fit_seeds(_ltr, ytr, device=probe_dev,
+                                  n_classes=n_classes)
+            sweep_rowpreds[f"readout.mlp.L{l}"] = mlp_pred_nets(
+                _nets, _lva, n_classes=n_classes)
             layer_sweep_res[str(l)] = {
                 "linear": float(_r["last.linear"]),
                 "linear.max": float(_r["last.linear.max"]),
                 "mlp": [float(_r["last.mlp"][0]), float(_r["last.mlp"][1])],
                 "mlp.shufl": [float(_r["last.mlp.shufl"][0]),
                                float(_r["last.mlp.shufl"][1])],
+                "head_file": _head_rel,
             }
             log(f"[sweep] L{l:<3} linear={layer_sweep_res[str(l)]['linear']:.4f} "
                 f"max={layer_sweep_res[str(l)]['linear.max']:.4f} "
-                f"mlp={layer_sweep_res[str(l)]['mlp'][0]:.4f}")
+                f"mlp={layer_sweep_res[str(l)]['mlp'][0]:.4f} "
+                f"(head -> {_head_rel})")
+        cache_vectors(max_train, max_val, tag="_layersweep_rowpreds",
+                      cache_dir=cache_dir, pad_max=PAD_MAX, **sweep_rowpreds)
+        _rp_path = cache_path(cache_dir, max_train, max_val,
+                              "_layersweep_rowpreds", pad_max=PAD_MAX)
+        log(f"[preds] saved per-layer sweep preds -> {_rp_path}")
+        best_l = max(sweep_layers,
+                     key=lambda l: layer_sweep_res[str(l)]["mlp"][0])
         result["layer_sweep"] = layer_sweep_res
         result["meta"]["layer_sweep"] = layer_sweep
+        result["meta"]["layer_sweep_best"] = {
+            "layer": best_l,
+            "mlp": layer_sweep_res[str(best_l)]["mlp"],
+            "head_file": layer_sweep_res[str(best_l)]["head_file"],
+        }
+        result["meta"]["layer_sweep_rowpreds"] = _rp_path
         save_stage_results(dirs, "layersweep", result)
 
     log("[3/5] budget curve (last.mlp, final-token)...")

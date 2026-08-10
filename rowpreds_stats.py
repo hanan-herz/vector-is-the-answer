@@ -71,11 +71,35 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("npz", help="path to *_rowpreds.npz")
     ap.add_argument("--readout", default="readout.mlp")
+    ap.add_argument("--pairs", default=None,
+                    help="explicit comma list of A:B key pairs to compare "
+                         "(e.g. readout.mlp.L18:readout.mlp.L27 for a "
+                         "layer-vs-layer McNemar off a sweep rowpreds npz). "
+                         "Overrides the default readout-vs-loops mode.")
     ap.add_argument("--json", default=None, help="also write results to this path")
     args = ap.parse_args()
 
     d = np.load(args.npz)
     y = d["y_true"]
+
+    if args.pairs:
+        reports = []
+        print(f"rows: {len(y)}   keys: {sorted(d.keys())}\n")
+        for pair in args.pairs.split(","):
+            ka, kb = pair.split(":")
+            r = pair_report(ka, d[ka], kb, d[kb], y)
+            reports.append(r)
+            sig = "***" if r["mcnemar_p"] < 0.001 else "**" if r["mcnemar_p"] < 0.01 else "*" if r["mcnemar_p"] < 0.05 else "ns"
+            print(f"{ka} ({r['acc_a']:.4f}) vs {kb} ({r['acc_b']:.4f}): "
+                  f"diff {r['diff']:+.4f}  CI95 [{r['ci95'][0]:+.4f}, {r['ci95'][1]:+.4f}]  "
+                  f"discordant a-only={r['a_only']} b-only={r['b_only']}  "
+                  f"McNemar p={r['mcnemar_p']:.2e} {sig}")
+        if args.json:
+            with open(args.json, "w") as fh:
+                json.dump({"npz": args.npz, "n": len(y),
+                           "reports": reports}, fh, indent=2)
+            print(f"\nwrote {args.json}")
+        return
     loops = sorted([k for k in d.keys() if k.startswith("loop.")],
                    key=lambda k: (k != "loop.zero", int(k.split(".")[1]) if k.split(".")[1].isdigit() else -1))
     print(f"rows: {len(y)}   arms: {loops}   readout: {args.readout}\n")
