@@ -389,7 +389,7 @@ def gpu_for(model: str) -> str:
 @modal_app.function(
     image=image,
     volumes={VOLUME_MOUNT: bench_volume, WEIGHTS_MOUNT: weights_volume},
-    timeout=6 * 60 * 60,
+    timeout=3 * 60 * 60,
     # GPU is set ONLY via .with_options(gpu=...) in main(). Do not put a
     # default here — a hardcoded gpu="b300" made every run look/schedule as
     # B300 even when gpu_for() chose T4 (decorator base vs dynamic pool).
