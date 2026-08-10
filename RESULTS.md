@@ -523,7 +523,7 @@ work — see `paper/implciation-early-layer.md` §2.
 task×model cells (mlp red, ± per-seed std band; linear dashed; best loop arm
 and loop.zero as horizontal references; white diamond = final-layer readout
 when it is not itself a swept layer). Paired McNemar annotation per panel.
-Mid-depth taps beat the final layer significantly at 6/12 cells and never
+Mid-depth taps beat the final layer significantly at 8/15 cells and never
 lose significantly. Regenerate: `python plot_layersweep.py`.*
 
 ### Ext 14d — BoolQ full val, Qwen3-8B: placement becomes significant with scale
@@ -559,7 +559,7 @@ one-pass method most needs it. L18 (0.845) actually *loses* to the loop — so
 too-early taps are worse than the final layer, and the optimum is deep
 (L30/36 = 83% vs 64% at 0.6B).
 
-### Cross-sweep summary — the full 12-cell placement matrix (all batch 8)
+### Cross-sweep summary — the full 15-cell placement matrix (all batch 8)
 
 Completed 2026-08-10 (Ext 15): DSV4 BoolQ/RuleTaker sweeps, the first-ever ARC
 sweeps (all four models), and the two missing Qwen cells (0.6B RuleTaker,
@@ -570,14 +570,17 @@ sweeps (all four models), and the two missing Qwen cells (0.6B RuleTaker,
 | BoolQ | Qwen3-0.6B | 28 | L18 | 64% | L18 (67%) | 0.761 | 0.746 | +0.010 | 0.18 ns |
 | BoolQ | Qwen3-4B | 36 | L24 | 67% | L24 (69%) | 0.868 | 0.856 | +0.011 | **0.038 \*** |
 | BoolQ | Qwen3-8B | 36 | L30 | 83% | L24 (69%) | 0.889 | 0.878 | +0.011 | **0.016 \*** |
+| BoolQ | Mistral-7B | 32 | L16 | 50% | **L16 (52%)** | 0.863 | 0.841 | +0.022 | **1.1e-04 \*\*\*** |
 | BoolQ | DeepSeek-V4 | 43 | L36 | 86% | **L22 (52%)** | 0.900 | 0.896 | +0.005 | 0.20 ns |
 | RuleTaker | Qwen3-0.6B | 28 | L18 | 64% | **L13 (48%)** | 0.688 | 0.650 | +0.036 | **0.020 \*** |
 | RuleTaker | Qwen3-4B | 36 | L24 | 67% | L24 (69%) | 0.781 | 0.744 | +0.038 | **2.8e-03 \*\*** |
 | RuleTaker | Qwen3-8B | 36 | L24 | 67% | L24 (69%) | 0.778 | 0.758 | +0.025 | **0.040 \*** |
+| RuleTaker | Mistral-7B | 32 | L18 | 56% | **L11 (35%)** | 0.702 | 0.643 | +0.059 | **5.2e-05 \*\*\*** |
 | RuleTaker | DeepSeek-V4 | 43 | L29 | 67% | **L22 (52%)** | 0.776 | 0.765 | +0.021 | 0.057 ns |
 | ARC | Qwen3-0.6B | 28 | L26 | 93% | L26 (96%) | 0.500 | 0.492 | +0.013 | 0.082 ns |
 | ARC | Qwen3-4B | 36 | L29 | 81% | L24 (69%) | 0.856 | 0.841 | +0.022 | **2.2e-04 \*\*\*** |
 | ARC | Qwen3-8B | 36 | L35 | 97% | L24 (69%) | 0.909 | 0.909 | +0.001 | 1.00 ns |
+| ARC | Mistral-7B | 32 | L20 | 63% | L18 (58%) | 0.741 | 0.728 | +0.013 | 0.50 ns |
 | ARC | DeepSeek-V4 | 43 | L42 | 98% | **L22 (52%)** | 0.951 | 0.951 | −0.005 | 0.29 ns |
 
 (**Layers** = stack depth (28/36/36/43); taps are residual-layer indices.
@@ -589,7 +592,7 @@ L22), where BoolQ/RuleTaker accumulate gradually. Shaded bands in the figure
 mark the plateau region per cell.)
 
 **Reading.** Placement was *not* a settled non-issue: the mid-depth tap wins
-significantly at **6/12 cells** and **never loses significantly**. Patterns:
+significantly at **8/15 cells** and **never loses significantly**. Patterns:
 
 - **Optimum depth is task-stable, not scale-driven.** BoolQ/RuleTaker peak at
   64–86% depth at every scale; the RuleTaker optimum stays at 2/3 depth from
@@ -602,6 +605,10 @@ significantly at **6/12 cells** and **never loses significantly**. Patterns:
 - **Placement converts parity into wins.** Where the loop catches the
   final-layer readout (BoolQ 8B: L35 ties loop.16; ARC 4B), the best mid-layer
   tap re-establishes or widens the readout's lead.
+- **Wide-shallow plateaus earlier (cross-family, Ext 16).** Mistral-7B
+  (32×4096) onsets at 52/35/58% vs Qwen3-8B's (36×4096) uniform 69%, with the
+  largest final-layer penalty at scale (RuleTaker +5.9pt ***): at fixed width,
+  the shallower stack uses less of itself.
 
 Causal attribution (late-layer next-token specialization) still needs the
 per-layer next-token probe flagged as future work — see
@@ -660,7 +667,7 @@ learn from labels, and the gap closes monotonically with scale (−10.6 → −4
 → −0.5 → −0.7pt); (2) **frontier MoE on formal serial deduction** (RuleTaker
 at DSV4, driven by the shallow-depth strata). Everywhere else — BoolQ at every
 scale, RuleTaker at every Qwen scale — the one-pass readout wins or ties, and
-a 60–70%-depth tap only widens its margin (6/12 significant placement wins,
+a 60–70%-depth tap only widens its margin (8/15 significant placement wins,
 zero significant losses). The pre-incident claim that "the loop dominates
 RuleTaker at ≥4B" was a ghost-cache artifact; in the clean record the readout
 *beats* the loop there.
@@ -673,3 +680,44 @@ RuleTaker sweep `77e037` (+ b4 sensitivity `373655`), ARC sweeps `ab30b3`
 `results/ruletaker_{qwen4b,qwen8b,dsv4}_n2k.json`; per-layer heads persisted
 under `cloud_bench_cache/<slug>/<task>/heads/`. Publication tables:
 `paper/main_tables.tex` → `paper/main_tables.pdf` (tectonic).
+
+## Ext 16 — Cross-family check: Mistral-7B (wide-shallow contrast)
+
+**Q:** are the placement/onset patterns Qwen-specific? Mistral-7B-v0.3 is the
+same width as Qwen3-8B but shallower (32 layers × 4096 vs 36 × 4096) and a
+different family/recipe — a fixed-width depth contrast at the ~8B scale.
+
+**Protocol:** canonical b8 on B200, canonical protocols (BoolQ full 9427/3270,
+loop 405; RuleTaker 2000/1000, loop 400; ARC 1000/1170, loop 1165);
+sweep layers 1/6/11/16/18/20/22/24/27/31 (denser around the expected
+transition). Runs `fe579f` (BoolQ) / `c64e74` (RuleTaker) / `a798a2` (ARC);
+paired stats `results/mistral7b_paired.json`.
+
+| task | readout (L31) | loop.0 | loop.8 | paired p | best tap | best−final | p | onset |
+|---|---|---|---|---|---|---|---|---|
+| BoolQ | 0.841 | 0.798 | **0.852** | 0.21 ns | L16 (50%) | +0.022 | **1.1e-04 \*\*\*** | **L16 (52%)** |
+| RuleTaker n2k | **0.643** | 0.515 | 0.575 | **0.017 \*** | L18 (56%) | +0.059 | **5.2e-05 \*\*\*** | **L11 (35%)** |
+| ARC-Challenge | 0.728 | 0.750 | **0.779** | **9.3e-05 \*\*\*** | L20 (63%) | +0.013 | 0.50 ns | L18 (58%) |
+
+**Findings.**
+
+1. **The task law replicates in a second family.** RuleTaker → readout beats
+   the loop (+6.8pt *; now 4/5 models, DSV4 the lone exception). BoolQ →
+   parity. ARC → loop wins in the low-accuracy regime: Mistral's 0.73 readout
+   sits where Qwen3-0.6B/4B sat, and the loop wins again — the ARC channel
+   crossover tracks *capability*, not family.
+2. **Placement still never loses** (8/15 significant wins campaign-wide);
+   Mistral's final-layer penalty on RuleTaker (+5.9pt ***) is the largest at
+   its scale.
+3. **Wide-shallow plateaus earlier.** Onsets 52/35/58% vs Qwen3-8B's 69%
+   everywhere — at identical width, the shallower stack assembles the verdict
+   sooner and gains less (RuleTaker: loses more) from its tail. Directional
+   support for the deep-narrow hypothesis (depth is used, width's tail is
+   wasted); one contrast pair, training-recipe confounds apply.
+4. **The ARC snap-in is not Qwen-specific**: chance at L11 (35%) → 0.685 at
+   L16 (52%) — the same few-layer assembly seen in all four Qwen/DSV4 cells
+   (now 5 models, 2 families).
+
+**Caveat:** Mistral BoolQ loop ran at loop_pad 2048 vs the Qwen canonical 8192
+(prompts ≪ 2048 tokens, so generations are unaffected); everything else is
+protocol-identical.
