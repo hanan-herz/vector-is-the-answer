@@ -378,3 +378,24 @@ commits the volume before returning, and the client retries fetch+promote
 `loop_pad_max=8192`; solid blue) vs the one-pass readout (red: 4-seed vote,
 dashed band = per-seed mean ± std). Annotated with paired McNemar of readout
 vs the best loop arm at each scale. Regenerate: `python plot_boolq_budget.py`.*
+
+## Methods note — readout probe placement (layer sweep) is now configurable
+
+Every run above taps the **last residual layer** by default (`head_l27` at
+0.6B, `head_l35` at 4B/8B, `head_l42` on DSV4); that placement was chosen to
+match the probing literature and was **never swept** in this repo. Commit
+`4d4ac20` adds a `--layer-sweep` option to `bench.py gr` (comma list of layer
+indices) that fits the same one-pass readout at arbitrary residual-stream
+layers and emits `result["layer_sweep"]` plus a `layersweep` stage entry. It
+reuses `to_vecs`/`readout_report` and the per-layer vec cache, so a swept
+layer is bit-identical to a full run at that layer (smoke check: the sweep's
+L27 exactly reproduced the pipeline's `last.linear`/`last.mlp`).
+
+Smoke on 0.6B (**toy slice 512 train / 256 val, `k_shots=0` — not headline
+data**): accuracy rose monotonically with depth (L3 .60 → L10 .63 → L18 .67 →
+L27 .68, final layer at/near the top). Suggestive that last-layer is a
+defensible default, but the full-scale sweep (`--max-train 9427 --max-val 3270
+--k-shots 0,8,16,32,64 --loop-pad-max 8192 --layer-sweep 3,10,18,27`) has
+**not been run** — only the new code path is validated. Reuse of the cached
+last-layer vectors + loop scores from Arm A means a full run pays only for the
+three mid-layer forwards.
