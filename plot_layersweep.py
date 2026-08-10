@@ -24,18 +24,22 @@ COL_LIN = "#7f7f7f"
 COL_LOOP = "#1f77b4"
 
 PANELS = [
+    # left column: BoolQ
     dict(run="results/boolq_layersweep_06b.json",
          paired="results/boolq_layersweep_06b_paired.json",
          title="Qwen3-0.6B · BoolQ (n=3270)",
          loop_refs=[("loop.64", "best loop (64-shot)"), ("loop.zero", "loop.zero")]),
-    dict(run="results/boolq_layersweep_8b.json",
-         paired="results/boolq_layersweep_8b_paired.json",
-         title="Qwen3-8B · BoolQ (n=3270)",
-         loop_refs=[("loop.64", "best loop (64-shot)"), ("loop.zero", "loop.zero")]),
+    # right column: RuleTaker
     dict(run="results/ruletaker_layersweep_4b.json",
          paired="results/ruletaker_layersweep_4b_paired.json",
          title="Qwen3-4B · RuleTaker n2k (n=1000)",
          loop_refs=[("loop.8", "loop.8 (400 rows)"), ("loop.zero", "loop.zero (400 rows)")]),
+    # left column: BoolQ
+    dict(run="results/boolq_layersweep_8b.json",
+         paired="results/boolq_layersweep_8b_paired.json",
+         title="Qwen3-8B · BoolQ (n=3270)",
+         loop_refs=[("loop.64", "best loop (64-shot)"), ("loop.zero", "loop.zero")]),
+    # right column: RuleTaker
     dict(run="results/ruletaker_layersweep_8b.json",
          paired="results/ruletaker_layersweep_8b_paired.json",
          title="Qwen3-8B · RuleTaker n2k (n=1000)",
@@ -104,13 +108,28 @@ for ax, cfg in zip(axes.flat, PANELS):
     ax.set_ylim(lo, mlp.max() + 0.04)
     ax.grid(True, axis="y", ls=":", alpha=0.5)
 
-# Shared legends per task row
+# Shared legends per task column
 axes[0, 0].legend(fontsize=8.5, loc="upper left", framealpha=0.9)
 axes[0, 1].legend(fontsize=8.5, loc="upper left", framealpha=0.9)
 axes[1, 0].legend(fontsize=8.5, loc="upper left", framealpha=0.9)
 axes[1, 1].legend(fontsize=8.5, loc="upper left", framealpha=0.9)
 
-fig.suptitle("Readout probe placement sweep — mid-depth taps beat the final layer at 3/4 sweeps",
+# Faint vertical split between BoolQ (left) and RuleTaker (right) columns
+fig.canvas.draw()  # resolve positions
+if hasattr(fig.canvas, "get_renderer"):
+    r = fig.canvas.get_renderer()
+else:
+    r = fig.canvas.renderer
+b0 = axes[0, 0].get_position()   # left-column top
+b1 = axes[0, 1].get_position()   # right-column top
+b3 = axes[1, 1].get_position()   # right-column bottom
+x_mid = (b0.x1 + b1.x0) / 2      # gap centre
+line = plt.Line2D([x_mid, x_mid], [b3.y0, b0.y1],
+                  transform=fig.transFigure, color="0.5", lw=1.5, ls="--",
+                  alpha=0.4, zorder=0)
+fig.add_artist(line)
+
+fig.suptitle("Readout probe placement sweep — 3/4 sweeps show a significant mid-depth advantage",
              fontsize=13, y=1.01)
 fig.tight_layout()
 fig.savefig("layersweep_placement.png", dpi=150, bbox_inches="tight")
