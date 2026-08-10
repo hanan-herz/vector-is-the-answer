@@ -24,6 +24,21 @@ Monotone rise → mid-depth plateau → terminal decline, at both scales and bot
 tasks. Consistent with the standard picture: mid layers do the *computing*,
 late layers specialize toward next-token surface form and output calibration —
 and that specialization slightly degrades the pooled verdict representation.
+
+*Hedge (important): "late layers are the decode stage / specialize toward
+surface form" is a prior from the interpretability literature that our data is*
+consistent with, *not something we demonstrate. We only measured that the
+readout of the verdict degrades at the final layer; we never ablated deep
+layers against generation, never probed next-token structure layer-by-layer,
+never measured generation quality at depth. "The final third is load-bearing
+for decoding" and "the verdict readout needs less than the full depth" are two
+different claims, and only the second is on the table here. The direct test of
+the trade-off is a per-layer next-token probe: does next-token predictability
+rise monotonically toward the final layer while the verdict readout declines?
+(It also settles the "lop off / prune the last N layers" question — pruning
+needs evidence the deep layers are cheap for generation, which this setup
+cannot see.)*
+
 The task contrast is the interesting part: significant gap on RuleTaker
 (serial deduction — the answer must be **computed** over depth) vs ns on BoolQ
 (passage-grounded extraction — the answer is **found**). Hypothesis: the

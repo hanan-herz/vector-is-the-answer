@@ -471,9 +471,10 @@ Ext 11 cache). Artifacts: `results/ruletaker_layersweep_8b.json` +
 
 **Paired McNemar (same 1000 rows):** L24 vs L35 **+2.5pt, CI95 [+0.002,
 +0.048], p=0.040 \***; L30 vs L35 +2.4pt, CI95 [+0.003, +0.045], p=0.031
-\*. Same-rows loop (val[:400]): readout L35 loop-matched 0.742 vs
-loop.8 0.7125 = +3.0pt; at the L24 tap the readout's margin over the loop
-would be ~+7pt (readout 0.78 ≈ loop.8 0.7125).
+\*.
+Same-rows loop (val[:400], the exact loop rows sliced from the rowpreds):
+readout **L35 loop-matched 0.7425 vs loop.8 0.7125 = +3.0pt**; at the **L24**
+tap (loop-rows readout 0.7575) the margin over the loop widens to **+4.5pt**.
 
 **Reading — task-type, not scale.** The significant mid-depth tap *survives
 at 8B* (+2.5pt, p=0.040), which resolves Ext 14b's open question: the
@@ -508,39 +509,6 @@ references). Left: BoolQ 0.6B, placement gap ns (p=0.18). Right: RuleTaker
 4B, mid-depth tap significantly beats the final layer (+3.8pt, p=2.7e-03
 **). Ext 14c (RuleTaker 8B) repeats the significant mid-depth tap at the same
 L24/36 fraction — see table above. Regenerate: `python plot_layersweep.py`.*
-
-### Ext 14c — RuleTaker n2k, Qwen3-8B: significant again, same optimum
-
-Identical sweep at 8B (Modal L40S, run_id `20260810T110623_69b106`; same
-Ext 11 n2k protocol, layers 1/6/12/18/24/30/35). Artifacts:
-`results/ruletaker_layersweep_8b.json` +
-`results/ruletaker_layersweep_8b_paired.json`; heads persisted per layer.
-
-| layer | linear | **mlp (mean±sd)** | mlp seed-vote |
-|---|---|---|---|
-| L1 | 0.526 | 0.538 ± .014 | — |
-| L6 | 0.565 | 0.591 ± .003 | — |
-| L12 | 0.626 | 0.656 ± .003 | — |
-| L18 | 0.706 | 0.737 ± .004 | 0.737 |
-| **L24** | 0.735 | **0.778 ± .004** | **0.7820** |
-| L30 | 0.732 | 0.778 ± .003 | 0.7810 |
-| L35 (last) | 0.751 | 0.758 ± .004 | 0.7570 |
-
-**Paired McNemar (same 1000 rows):** L24 vs L35 **+2.5pt, CI95 [+0.002,
-+0.048], p=0.040 \***; L30 vs L35 +2.4pt p=0.031 \*. L24 and L30 are a tied
-plateau (Δ 0.0004). Same-rows on the loop's val[:400]: **L24 readout 0.7575
-vs loop.8 0.7125 = +4.5pt** (final-layer loop-matched: 0.7425 vs 0.7125 =
-+3.0pt). Consistency: this run's L35 mlp 0.7575 reproduces Ext 11's
-canonical 8B number exactly (same vec cache).
-
-**Cross-scale reading (RuleTaker):** the optimum is **L24 at both 4B and 8B**
-(2/3 through the shared 36-layer stack), and the placement gap over the final
-layer is significant at both scales (+3.8pt \*\* at 4B, +2.5pt \* at 8B).
-"Tap at ~2/3 depth" now holds at 3/3 measurements (L18/28=64% at 0.6B;
-L24/36=67% at 4B and 8B). The gap does not grow with scale — it slightly
-shrinks — so placement sensitivity here is a **task property** (serial-depth
-computation), with the BoolQ-8B run (in flight) as the discriminating
-cross-check.
 
 ### Ext 14d — BoolQ full val, Qwen3-8B: placement becomes significant with scale
 
