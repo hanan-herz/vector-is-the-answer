@@ -406,6 +406,7 @@ def _run_bench_remote(
     loop_pad_max: int | None = None,
     run_id: str | None = None,
     task: str = "boolq",
+    layer_sweep: str | None = None,
 ):
     os.environ["HF_HOME"] = os.path.join(VOLUME_MOUNT, "hf_home")
     # Prove which SKU we actually got (dashboard can show the base function).
@@ -426,7 +427,7 @@ def _run_bench_remote(
         max_train=max_train, max_val=max_val, loop_val=loop_val,
         batch=batch, k_shots=k_shots, loop_pad_max=loop_pad_max,
         artifact_root=VOLUME_MOUNT, weights_dir=weights_dir,
-        run_id=run_id, task=task,
+        run_id=run_id, task=task, layer_sweep=layer_sweep,
     )
     meta = (res or {}).get("meta") or {}
     # Thin payload only: full metrics already live on the volume.
@@ -1022,7 +1023,8 @@ def run_bench(size="0.6B", device=None, max_train=None, max_val=None,
               loop_val=None, batch=8, k_shots="0,8",
               artifact_root=None, cache_dir=None,
               weights_dir=None, result_path=None, run_id=None,
-              loop_pad_max: int | None = None, task: str = "boolq"):
+              loop_pad_max: int | None = None, task: str = "boolq",
+              layer_sweep: str | None = None):
     """One full bench run (the pipeline the CLI drives), also used directly by
     the Modal app so both share identical code. Returns a dict of scalar
     results (JSON-serializable for cloud orchestration).
@@ -1168,6 +1170,52 @@ def run_bench(size="0.6B", device=None, max_train=None, max_val=None,
                    else (v if isinstance(v, dict) else float(v))
                    for k, v in res.items()})
     save_stage_results(dirs, "readouts", result)
+
+    if layer_sweep:
+        # Probe-placement sweep: fit the same one-pass readout at several
+        # residual-stream layers to test whether the last-layer tap is optimal
+        # (mid-layer residuals often hold relational/factual info earlier).
+        # Reuses the exact per-layer vec cache the main path uses, so the
+        # sweep is cheap beyond the first forward per layer and a later full
+        # run at any swept layer hits the cache.
+        sweep_layers = [int(x) for x in str(layer_sweep).split(",")]
+        sweep_layers = sorted(
+            l for l in set(sweep_layers) if 0 <= l < n_layers_count)
+        log(f"[2.5] readout placement sweep over layers {sweep_layers}")
+        layer_sweep_res = {}
+        for l in sweep_layers:
+            _vc = load_cached_vectors(
+                max_train, max_val,
+                ["last_tr", "ctx_tr", "last_va", "ctx_va", "ytr", "yva"],
+                cache_dir=cache_dir, layer=l)
+            if _vc is not None:
+                _ltr, _lva = _vc["last_tr"], _vc["last_va"]
+                log(f"[sweep] L{l} vectors from cache")
+            else:
+                _ltr, _ctr = to_vecs(model, tok, texts_tr, l, batch,
+                                     label=f"train@L{l}")
+                _lva, _cva = to_vecs(model, tok, texts_va, l, batch,
+                                     label=f"val@L{l}")
+                cache_vectors(max_train, max_val,
+                              last_tr=_ltr, ctx_tr=_ctr,
+                              last_va=_lva, ctx_va=_cva,
+                              ytr=ytr, yva=yva,
+                              cache_dir=cache_dir, layer=l)
+            _r = readout_report(_ltr, ytr, _lva, yva, "last", rng,
+                                device=probe_dev, n_classes=n_classes)
+            layer_sweep_res[str(l)] = {
+                "linear": float(_r["last.linear"]),
+                "linear.max": float(_r["last.linear.max"]),
+                "mlp": [float(_r["last.mlp"][0]), float(_r["last.mlp"][1])],
+                "mlp.shufl": [float(_r["last.mlp.shufl"][0]),
+                               float(_r["last.mlp.shufl"][1])],
+            }
+            log(f"[sweep] L{l:<3} linear={layer_sweep_res[str(l)]['linear']:.4f} "
+                f"max={layer_sweep_res[str(l)]['linear.max']:.4f} "
+                f"mlp={layer_sweep_res[str(l)]['mlp'][0]:.4f}")
+        result["layer_sweep"] = layer_sweep_res
+        result["meta"]["layer_sweep"] = layer_sweep
+        save_stage_results(dirs, "layersweep", result)
 
     log("[3/5] budget curve (last.mlp, final-token)...")
     budget = {}
@@ -1341,6 +1389,7 @@ def main(
     k_shots: str = "0,8",
     loop_pad_max: int | None = None,
     task: str = "boolq",
+    layer_sweep: str | None = None,
     fetch_cache: bool = False,
     no_fetch: bool = False,
     promote: str = "",
@@ -1363,7 +1412,7 @@ def main(
     call = _run_bench_remote.with_options(gpu=gpu_spec).spawn(
         model=model, max_train=max_train, max_val=max_val,
         loop_val=loop_val, batch=batch, k_shots=k_shots,
-        loop_pad_max=loop_pad_max, task=task,
+        loop_pad_max=loop_pad_max, task=task, layer_sweep=layer_sweep,
     )
     # Volume path is known up front (run_id is not). Print a recovery get so
     # if this client is killed the human/agent can still pull artifacts.
@@ -1461,6 +1510,9 @@ if __name__ == "__main__":
         ap.add_argument("--batch", type=int, default=8)
         ap.add_argument("--k-shots", default="0,8")
         ap.add_argument("--loop-pad-max", type=int, default=None)
+        ap.add_argument("--layer-sweep", default=None,
+                        help="comma list of layer indices for probe-placement "
+                             "sweep (e.g. --layer-sweep 3,9,15,21,27)")
         ap.add_argument("--device", default=None)
         ap.add_argument("--result-path", default=None,
                         help="extra JSON copy (any path; use results/ for shelf)")
@@ -1475,6 +1527,7 @@ if __name__ == "__main__":
             max_train=args.max_train, max_val=args.max_val,
             loop_val=args.loop_val, batch=args.batch, k_shots=args.k_shots,
             loop_pad_max=args.loop_pad_max, result_path=result_path,
+            layer_sweep=args.layer_sweep,
         )
         print(json.dumps({k: v for k, v in out.items() if k != "meta"},
                          indent=2, default=str))
