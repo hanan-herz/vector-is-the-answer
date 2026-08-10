@@ -424,3 +424,35 @@ as a fine (if not provably optimal) choice.
 *Figure: one-pass readout accuracy vs tapped residual layer (mlp red,
 ± per-seed std band; linear dashed). Loop arms (pad 8192, cached from Arm A)
 as horizontal references. Regenerate: `python plot_layersweep.py`.*
+
+### Ext 14b — RuleTaker n2k, Qwen3-4B: the placement win IS significant here
+
+Same sweep on the second task + a larger model (Modal L40S, run_id
+`20260810T105307_b42924`; Ext 11 protocol — 2000 train / 1000 val, loop on
+val[:400], k_shots 0/8, pad 384/2048; layers 1/6/12/18/24/30/35, L35 from the
+Ext 11 cache). Artifacts: `results/ruletaker_layersweep_4b.json` +
+`results/ruletaker_layersweep_4b_paired.json`; heads persisted per layer.
+
+| layer | linear | **mlp (mean±sd)** | mlp seed-vote |
+|---|---|---|---|
+| L1 | 0.542 | 0.548 ± .006 | — |
+| L6 | 0.560 | 0.578 ± .008 | — |
+| L12 | 0.607 | 0.655 ± .005 | — |
+| L18 | 0.704 | 0.730 ± .006 | 0.7340 |
+| **L24** | 0.726 | **0.781 ± .006** | **0.7820** |
+| L30 | 0.733 | 0.756 ± .007 | 0.7620 |
+| L35 (last) | 0.724 | 0.744 ± .002 | 0.7440 |
+
+**Paired McNemar (same 1000 rows):** L24 vs L35 **+3.8pt, CI95 [+0.015,
++0.062], p=2.8e-03 \*\*** — at 4B on the serial-depth task the mid-depth tap
+(2/3 through the 36-layer stack) **significantly** beats the final layer, in
+contrast to BoolQ-0.6B's ns. L24 vs L18 +4.8pt \*\*; L24 vs L30 +2.0pt ns.
+Same-rows loop comparison (L24 on the loop's exact val[:400]): **readout
+0.7725 vs loop.8 0.7225 = +5.0pt**, where Ext 11's final-layer tap gave only
++1.1pt loop-matched (0.734 vs 0.723). Placement is therefore a **real,
+significant lever at 4B on RuleTaker** — it widens the readout's margin over
+the loop ~5×. (Consistency: this run's L35 mlp 0.7438 reproduces Ext 11's
+canonical 0.7427 within GPU-train nondeterminism.) Reading: the deeper the
+serial reasoning a task demands, the more the answer concentrates in
+mid-depth residuals — final-layer specialization toward next-token form costs
+more on RuleTaker than on BoolQ.
