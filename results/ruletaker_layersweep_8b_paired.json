@@ -1,0 +1,36 @@
+{
+  "npz": "/tmp/rt_ls8b_rowpreds.npz",
+  "n": 1000,
+  "reports": [
+    {
+      "pair": "readout.mlp.L30 vs readout.mlp.L35",
+      "acc_a": 0.781,
+      "acc_b": 0.757,
+      "diff": 0.024,
+      "ci95": [
+        0.003,
+        0.045
+      ],
+      "both_right": 712,
+      "a_only": 69,
+      "b_only": 45,
+      "neither": 174,
+      "mcnemar_p": 0.03077632385440321
+    },
+    {
+      "pair": "readout.mlp.L24 vs readout.mlp.L35",
+      "acc_a": 0.782,
+      "acc_b": 0.757,
+      "diff": 0.025,
+      "ci95": [
+        0.002,
+        0.048
+      ],
+      "both_right": 701,
+      "a_only": 81,
+      "b_only": 56,
+      "neither": 162,
+      "mcnemar_p": 0.039928179668616365
+    }
+  ]
+}
