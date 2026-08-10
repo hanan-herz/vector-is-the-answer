@@ -379,23 +379,48 @@ commits the volume before returning, and the client retries fetch+promote
 dashed band = per-seed mean ± std). Annotated with paired McNemar of readout
 vs the best loop arm at each scale. Regenerate: `python plot_boolq_budget.py`.*
 
-## Methods note — readout probe placement (layer sweep) is now configurable
+## Ext 14 — readout probe placement sweep (BoolQ 0.6B, full val)
 
 Every run above taps the **last residual layer** by default (`head_l27` at
 0.6B, `head_l35` at 4B/8B, `head_l42` on DSV4); that placement was chosen to
-match the probing literature and was **never swept** in this repo. Commit
-`4d4ac20` adds a `--layer-sweep` option to `bench.py gr` (comma list of layer
-indices) that fits the same one-pass readout at arbitrary residual-stream
-layers and emits `result["layer_sweep"]` plus a `layersweep` stage entry. It
-reuses `to_vecs`/`readout_report` and the per-layer vec cache, so a swept
-layer is bit-identical to a full run at that layer (smoke check: the sweep's
-L27 exactly reproduced the pipeline's `last.linear`/`last.mlp`).
+match the probing literature and had **never been swept** in this repo. The
+`--layer-sweep` option to `bench.py` (commits `4d4ac20`, `268cbd5`) fits the
+same one-pass readout at arbitrary residual-stream layers, persists the
+trained head at **every** swept layer (`heads/head_l{l}.npz`, same artifact
+format as the pipeline's final-layer head — so a winning mid-layer tap is
+deployable), and saves per-row preds of each layer's 4-seed ensemble into one
+npz for CPU-only paired tests (`rowpreds_stats.py --pairs`).
 
-Smoke on 0.6B (**toy slice 512 train / 256 val, `k_shots=0` — not headline
-data**): accuracy rose monotonically with depth (L3 .60 → L10 .63 → L18 .67 →
-L27 .68, final layer at/near the top). Suggestive that last-layer is a
-defensible default, but the full-scale sweep (`--max-train 9427 --max-val 3270
---k-shots 0,8,16,32,64 --loop-pad-max 8192 --layer-sweep 3,10,18,27`) has
-**not been run** — only the new code path is validated. Reuse of the cached
-last-layer vectors + loop scores from Arm A means a full run pays only for the
-three mid-layer forwards.
+**Full-scale run** (Modal L40S, run_id `20260810T104749_6aea90`, full val
+9427/3270, `k_shots 0,8,16,32,64`, `loop_pad_max=8192`; layers 1/5/9/13/18/
+23/27, L27 from the Arm A cache so the comparison is same-rows). Artifacts:
+`results/boolq_layersweep_06b.json` + `results/boolq_layersweep_06b_paired.json`.
+
+| layer | linear | **mlp (mean±sd)** | mlp seed-vote |
+|---|---|---|---|
+| L1 | 0.643 | 0.644 ± .003 | — |
+| L5 | 0.655 | 0.671 ± .003 | — |
+| L9 | 0.655 | 0.688 ± .004 | — |
+| L13 | 0.701 | 0.726 ± .002 | — |
+| **L18** | **0.756** | **0.761 ± .003** | **0.7624** |
+| L23 | 0.754 | 0.747 ± .003 | 0.7502 |
+| L27 (last) | 0.742 | 0.746 ± .003 | 0.7520 |
+
+**Reading.** The curve rises monotonically to a **mid-depth plateau
+(L13–L23)**, peaking at L18, then declines slightly into the final layer —
+consistent with late layers specializing toward the next-token distribution
+at the expense of the pooled verdict representation. **Paired McNemar on the
+same 3270 rows: L18 vs L27 = +1.0pt seed-vote, p=0.18 ns** (CI95
+[−0.005, +0.025]); L18 vs L23 also ns (p=0.066). So the honest claim is the
+*shape* (mid-plateau taps are at least as good as the final layer, point
+estimate ~+1pt for L18), **not** a significant placement win at this n. The
+thesis is unhurt: **every** swept layer's readout beats the best 64-shot loop
+(0.715) — even the worst tap (L1, 0.644) clears loop.zero (0.631), and the
+best tap widens the readout's lead to ~+4.7pt. Last-layer-by-default stands
+as a fine (if not provably optimal) choice.
+
+![Readout probe placement sweep — Qwen3-0.6B BoolQ](layersweep_06b.png)
+
+*Figure: one-pass readout accuracy vs tapped residual layer (mlp red,
+± per-seed std band; linear dashed). Loop arms (pad 8192, cached from Arm A)
+as horizontal references. Regenerate: `python plot_layersweep.py`.*
