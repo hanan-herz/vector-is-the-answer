@@ -694,6 +694,37 @@ def mlp_fit_seeds(Xtr, ytr, seeds=(0, 1, 2, 3), device="cpu", n_classes=None):
 
 
 @torch.no_grad()
+def mlp_pred_nets(nets, Xva, n_classes=None):
+    """Per-row predictions of a pre-fit seed ensemble, majority vote across
+    seeds -> np.int array [n] of class indices. Shares its decode logic with
+    ``mlp_eval_nets``; used to persist per-row readout preds for paired
+    significance tests (McNemar) against the loop."""
+    Xva = np.asarray(Xva)
+    if len(Xva) == 0:
+        return np.zeros(0, dtype=int)
+    votes = []
+    for net in nets:
+        mu, sd = net._probe_mu, net._probe_sd
+        n_cls = getattr(net, "_n_classes", 2)
+        dev = next(net.parameters()).device
+        xv = torch.tensor((Xva - mu) / (sd + 1e-8), dtype=torch.float32,
+                          device=dev)
+        out = net(xv).detach().cpu().numpy()
+        if n_cls > 2:
+            pred = out.argmax(axis=-1)
+        else:
+            logits = out.squeeze(-1) if out.ndim > 1 else out
+            p = 1.0 / (1.0 + np.exp(-np.clip(logits, -50, 50)))
+            pred = (p > 0.5).astype(int)
+        votes.append(np.asarray(pred, dtype=int))
+    V = np.stack(votes)  # [n_seeds, n]
+    n_cls = _n_classes_of(np.asarray(V).ravel(), n_classes)
+    # majority vote over seeds (ties -> lowest class index)
+    return np.apply_along_axis(
+        lambda col: np.bincount(col, minlength=n_cls).argmax(), 0, V).astype(int)
+
+
+@torch.no_grad()
 def mlp_eval_nets(nets, Xva, yva):
     """Mean ± std accuracy of a pre-fit seed ensemble on one val slice."""
     if len(Xva) == 0:
@@ -1237,6 +1268,20 @@ def run_bench(size="0.6B", device=None, max_train=None, max_val=None,
             pad_max=loop_pad_max, answer_set=answer_set)
         cache_vectors(0, loop_val, tag="_loop", cache_dir=cache_dir,
                       layer=last_layer, pad_max=loop_pad_max, **loops)
+        # Persist per-row preds (readout + loop + gold) on the shared loop rows
+        # so paired significance tests (McNemar) run CPU-only off artifacts.
+        # Cache note: the loop acc cache above stores overall acc only, so
+        # per-row preds exist only on fresh (non-cache-hit) runs.
+        readout_preds = mlp_pred_nets(stratum_nets, last_va[lsel],
+                                      n_classes=n_classes)
+        row_preds = {"y_true": np.asarray(yva[lsel], dtype=int),
+                     "readout.mlp": readout_preds}
+        row_preds.update({k: np.asarray(p, dtype=int)
+                          for k, p in preds_by_key.items()})
+        cache_vectors(0, loop_val, tag="_rowpreds", cache_dir=cache_dir,
+                      layer=last_layer, pad_max=loop_pad_max, **row_preds)
+        log(f"[preds] saved per-row preds (readout + {list(preds_by_key)}) "
+            f"on {len(lsel)} shared rows")
     for k in loops:
         log(f"  {k:<14} {loops[k]:.3f}")
 
