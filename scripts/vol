@@ -1,0 +1,221 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = []
+# ///
+"""vol — sane wrapper around `modal volume` for the bench-results volume.
+
+Fixes the recurring footguns of the raw CLI:
+  * `modal volume ls` prints FULL remote paths and mixes dirs/files;
+    here you get relative paths, dirs trailing with '/', optional recursion.
+  * `modal volume get REMOTE DEST` silently creates a FILE named DEST when
+    DEST doesn't exist as a directory; here DEST is always mkdir -p'ed first
+    and the outcome is verified (self-repairing if the CLI misbehaves).
+  * batch rm needs shell loops; here pass N paths (or '-' for stdin), with
+    --dry-run and per-file failure reporting.
+
+Usage (run directly as scripts/vol):
+  vol ls [PREFIX] [-r]                    list (dirs end with '/')
+  vol get REMOTE [REMOTE...] [-d DIR]     download into DIR (default: cwd)
+  vol rm REMOTE [REMOTE...] [-y]          delete files (or dirs with -R)
+  vol rm - [-y] < list.txt                delete paths from stdin
+  vol mv REMOTE... DST_DIR                relocate (get+put+rm, verified) —
+                                          the CLI has no rename
+  vol caches [--old-key|--new-key]        list */cache/*.npz, filtered by the
+                                          _b<BATCH> key token
+Global: --vol NAME (default bench-results), --json for machine output.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+
+VOL = "bench-results"
+MODAL = shutil.which("modal") or "modal"
+
+
+def _run(args: list[str], check: bool = True) -> subprocess.CompletedProcess:
+    p = subprocess.run([MODAL, "volume", *args], capture_output=True, text=True)
+    if check and p.returncode != 0:
+        raise RuntimeError(f"modal volume {' '.join(args)}\n{p.stderr.strip()}")
+    return p
+
+
+def ls_one(vol: str, path: str) -> list[dict]:
+    """List a single level. Returns entries with relative 'filename' + 'type'."""
+    p = _run(["ls", "--json", vol, path or "/"], check=False)
+    if p.returncode != 0:
+        return []  # nonexistent path -> empty (callers treat as no such dir)
+    out = []
+    for e in json.loads(p.stdout):
+        name = e.get("filename")
+        if name:
+            out.append({"path": name, "type": e.get("type", "?"),
+                        "size": e.get("size", "")})
+    return out
+
+
+def ls(vol: str, prefix: str, recursive: bool) -> list[dict]:
+    """List under prefix; recursive walks subdirs. Files only in output when
+    recursive (dirs traversed); non-recursive shows dirs too."""
+    entries = ls_one(vol, prefix)
+    if not recursive:
+        return entries
+    files, queue = [], [e["path"] for e in entries if e["type"] == "dir"]
+    files.extend(e for e in entries if e["type"] != "dir")
+    while queue:
+        d = queue.pop(0)
+        for e in ls_one(vol, d):
+            if e["type"] == "dir":
+                queue.append(e["path"])
+            else:
+                files.append(e)
+    return sorted(files, key=lambda e: e["path"])
+
+
+def cmd_ls(a) -> None:
+    entries = ls(a.vol, a.prefix, a.recursive)
+    if a.json:
+        print(json.dumps(entries, indent=1))
+        return
+    for e in entries:
+        suffix = "/" if e["type"] == "dir" else ""
+        print(f"{e['path']}{suffix}")
+
+
+def cmd_get(a) -> None:
+    dest = os.path.abspath(a.dest)
+    os.makedirs(dest, exist_ok=True)
+    ok = True
+    for remote in a.remote:
+        base = remote.rstrip("/").split("/")[-1]
+        target = os.path.join(dest, base)
+        _run(["get", a.vol, remote, dest, "--force"], check=False)
+        if os.path.isfile(target):
+            print(f"ok  {remote} -> {target}")
+            continue
+        # CLI failure mode: DEST materialised as a file (it wasn't a dir when
+        # the command started) or file landed elsewhere. Repair if possible.
+        if os.path.isfile(dest) and os.path.getsize(dest) > 0:
+            tmp = dest + ".tmp-mv"
+            os.rename(dest, tmp)
+            os.makedirs(dest, exist_ok=True)
+            os.rename(tmp, target)
+            print(f"ok* {remote} -> {target} (repaired dest-as-file)")
+            continue
+        print(f"FAIL {remote}", file=sys.stderr)
+        ok = False
+    sys.exit(0 if ok else 1)
+
+
+def cmd_rm(a) -> None:
+    remotes = list(a.remote)
+    if remotes == ["-"]:
+        remotes = [ln.strip() for ln in sys.stdin if ln.strip()]
+    if not remotes:
+        print("nothing to delete", file=sys.stderr)
+        sys.exit(1)
+    if a.dry_run:
+        print("\n".join(remotes))
+        print(f"({len(remotes)} paths; dry run)", file=sys.stderr)
+        return
+    if not a.yes:
+        print(f"delete {len(remotes)} path(s) from {a.vol}? [y/N] ", end="")
+        if input().strip().lower() != "y":
+            sys.exit("aborted")
+    flags = ["-r"] if a.recursive else []
+    failed = 0
+    for r in remotes:
+        p = _run(["rm", *flags, a.vol, r], check=False)
+        if p.returncode != 0:
+            print(f"FAIL {r}: {p.stderr.strip()}", file=sys.stderr)
+            failed += 1
+    print(f"deleted {len(remotes) - failed}/{len(remotes)}")
+    sys.exit(1 if failed else 0)
+
+
+_BATCH_TOKEN = re.compile(r"_b\d+(\.|_)")
+
+
+def cmd_mv(a) -> None:
+    import tempfile
+    dst_dir = a.dst_dir.rstrip("/")
+    for remote in a.remote:
+        base = remote.rstrip("/").split("/")[-1]
+        dst = f"{dst_dir}/{base}"
+        with tempfile.TemporaryDirectory() as td:
+            _run(["get", a.vol, remote, td, "--force"])
+            local = os.path.join(td, base)
+            if not os.path.isfile(local):
+                print(f"FAIL {remote}: get produced no file", file=sys.stderr)
+                sys.exit(1)
+            _run(["put", a.vol, local, dst])
+        if any(e["path"] == dst for e in ls_one(a.vol, dst_dir)):
+            _run(["rm", a.vol, remote])
+            print(f"ok  {remote} -> {dst}")
+        else:
+            print(f"FAIL {remote}: put did not land at {dst}; "
+                  f"source left in place", file=sys.stderr)
+            sys.exit(1)
+
+
+def cmd_caches(a) -> None:
+    files = ls(a.vol, "", recursive=True)
+    files = [f for f in files if "/cache/" in f["path"]
+             and f["path"].endswith(".npz")]
+    if a.old_key:
+        files = [f for f in files if not _BATCH_TOKEN.search(f["path"])]
+    elif a.new_key:
+        files = [f for f in files if _BATCH_TOKEN.search(f["path"])]
+    for f in files:
+        print(f["path"])
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--vol", default=VOL)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    p = sub.add_parser("ls")
+    p.add_argument("prefix", nargs="?", default="")
+    p.add_argument("-r", "--recursive", action="store_true")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(fn=cmd_ls)
+
+    p = sub.add_parser("get")
+    p.add_argument("remote", nargs="+")
+    p.add_argument("-d", "--dest", default=".")
+    p.set_defaults(fn=cmd_get)
+
+    p = sub.add_parser("rm")
+    p.add_argument("remote", nargs="+", help="paths, or '-' for stdin")
+    p.add_argument("-y", "--yes", action="store_true")
+    p.add_argument("-R", "--recursive", action="store_true",
+                   help="allow deleting directories")
+    p.add_argument("--dry-run", action="store_true")
+    p.set_defaults(fn=cmd_rm)
+
+    p = sub.add_parser("mv")
+    p.add_argument("remote", nargs="+")
+    p.add_argument("dst_dir", help="destination directory (remote)")
+    p.set_defaults(fn=cmd_mv)
+
+    p = sub.add_parser("caches")
+    g = p.add_mutually_exclusive_group()
+    g.add_argument("--old-key", action="store_true",
+                   help="only files WITHOUT the _b<BATCH> token")
+    g.add_argument("--new-key", action="store_true")
+    p.set_defaults(fn=cmd_caches)
+
+    a = ap.parse_args()
+    a.fn(a)
+
+
+if __name__ == "__main__":
+    main()

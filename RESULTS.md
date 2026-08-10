@@ -153,16 +153,20 @@ matched-supervision discipline as BoolQ.
 | loop_val | **400** (`val[:400]`; cost cap — always compare loop to `last.mlp.loop_matched`) |
 | k_shots | **0, 8** |
 | pad_max / loop_pad_max | 384 / 2048 |
-| GPU | Qwen 0.6B/4B: T4; Qwen 8B: **L40S** (T4 OOM on loop); DSV4: **B300** |
+| GPU / batch | 0.6B/4B: **H200**; 8B: **B200**; DSV4: **B300** — **batch 8 everywhere** (Ext 15 rebaseline; FP8 batch-shape numerics) |
 
 **Artifacts (canonical):**
 
 | model | file | run_id |
 |---|---|---|
-| Qwen3-0.6B | `results/ruletaker_qwen06b_n2k.json` | `20260809T070151_833647` |
-| Qwen3-4B | `results/ruletaker_qwen4b_n2k.json` | `20260809T070146_e15da9` |
-| Qwen3-8B | `results/ruletaker_qwen8b_n2k.json` | `20260809T081420_2a40b2` |
-| DeepSeek-V4-Flash | `results/ruletaker_dsv4_n2k.json` | `20260809T071108_85201d` |
+| Qwen3-0.6B | `results/ruletaker_qwen06b_n2k.json` | `20260810T151421_e5aad1` |
+| Qwen3-4B | `results/ruletaker_qwen4b_n2k.json` | `20260810T145353_a8e559` |
+| Qwen3-8B | `results/ruletaker_qwen8b_n2k.json` | `20260810T145336_57a235` |
+| DeepSeek-V4-Flash | `results/ruletaker_dsv4_n2k.json` | `20260810T120259_77e037` |
+
+(All four re-run 2026-08-10 at batch 8 on pinned GPUs — Ext 15. The original
+run_ids `833647`/`e15da9`/`2a40b2`/`85201d` carried pre-fix loop scores and
+mixed batches; see Ext 15 for the incident and the deltas.)
 
 Plots: `ruletaker_depth_strata.png` (overall + depth),
 `head_to_head_three_tasks.png` (BoolQ · RuleTaker · ARC). Regenerate:
@@ -170,21 +174,25 @@ Plots: `ruletaker_depth_strata.png` (overall + depth),
 
 ### Overall (matched loop comparison)
 
-| model | last.mlp (full val) | last.mlp.loop_matched (n=400) | loop.zero | loop.8 | matched − loop.8 |
-|---|---|---|---|---|---|
-| **Qwen3-0.6B** | 0.655 ± .008 | **0.645** | 0.605 | 0.625 | **+0.020** |
-| **Qwen3-4B** | 0.743 ± .002 | **0.734** | 0.658 | 0.723 | **+0.012** |
-| **Qwen3-8B** | 0.758 ± .004 | **0.743** | 0.668 | 0.713 | **+0.030** |
-| **DeepSeek-V4** | 0.777 ± .004 | **0.778** | 0.593 | **0.798** | −0.019 |
+| model | last.mlp (full val) | readout on loop rows (n=400) | loop.zero | loop.8 | readout − loop.8 | paired McNemar p |
+|---|---|---|---|---|---|---|
+| **Qwen3-0.6B** | 0.650 ± .007 | **0.638** | 0.600 | 0.545 | **+0.093** | **3.7e-03 \*\*** |
+| **Qwen3-4B** | 0.748 ± .003 | **0.738** | 0.653 | 0.698 | **+0.040** | 0.20 ns |
+| **Qwen3-8B** | 0.761 ± .006 | **0.753** | 0.675 | 0.730 | **+0.023** | 0.45 ns |
+| **DeepSeek-V4** | 0.765 ± .004 | 0.763 | 0.605 | **0.838** | **−0.074** | **1e-03 \*\*** (loop wins) |
 
 Controls (all models): `last.mlp.shufl` ~0.48–0.51 (≈chance); `ctx.mlp` ~0.52–0.58
 ≪ last.mlp; randproj `noise` ~0.49–0.51, `perm` ≈ `max`.
 
-**Reading (overall).** On Qwen, the **matched one-pass MLP ≥ fair 8-shot loop**
-at every scale (+1–3pts). At DSV4, loop.8 is **slightly** ahead (~2pts) —
-parity, not a blowout. Zero-shot loop is weak (especially DSV4 0.59), so
-few-shot is required for a fair loop baseline. Same qualitative story as BoolQ
-(Ext 8–10): **the loop does not cleanly dominate a residual readout**.
+**Reading (overall).** On Qwen, the **matched one-pass MLP beats the fair
+8-shot loop at every scale** (+2 to +9pts; significant at 0.6B, ns at 4B/8B
+on n=400). At DSV4 the loop.8 **does** win, and decisively (+7.4pt,
+p=1e-03) — the only clean loop win on RuleTaker, driven by the shallow-depth
+strata (see below). Zero-shot loop is weak (especially DSV4 0.605), so
+few-shot is required for a fair loop baseline. Net: **the loop dominates a
+residual readout only where the model is strong and the task is formal —
+frontier MoE on serial deduction; everywhere else the one-pass readout wins
+or ties.**
 
 ### Per-depth loop vs MLP (same rows — `stratum_depth_loop`)
 
@@ -194,38 +202,44 @@ depth-specific head). Full-val depth MLP alone lives in `stratum_depth` (larger 
 
 | depth | n | 0.6B mlp / k8 | 4B mlp / k8 | 8B mlp / k8 | DSV4 mlp / k8 |
 |---|---|---|---|---|---|
-| 0 | 39 | 0.763 / 0.590 | 0.821 / 0.769 | 0.846 / 0.795 | 0.878 / 0.872 |
-| 1 | 51 | 0.578 / 0.549 | 0.745 / 0.745 | 0.819 / 0.686 | 0.804 / 0.804 |
-| 2 | 35 | 0.643 / 0.829 | 0.807 / 0.800 | 0.750 / 0.857 | 0.814 / 0.829 |
-| 3 | 203 | 0.667 / 0.611 | 0.736 / 0.724 | 0.719 / 0.704 | 0.778 / 0.793 |
-| 5 | 51 | 0.564 / 0.627 | 0.623 / 0.686 | 0.745 / 0.686 | 0.676 / 0.725 |
-| NatLang | 21 | 0.571 / 0.667 | 0.679 / 0.524 | 0.571 / 0.524 | 0.714 / 0.810 |
+| 0 | 39 | 0.756 / 0.641 | 0.827 / 0.718 | 0.833 / 0.821 | 0.846 / **0.949** |
+| 1 | 51 | 0.598 / 0.627 | 0.735 / 0.686 | **0.838** / 0.647 | 0.794 / **0.941** |
+| 2 | 35 | 0.650 / 0.543 | 0.786 / 0.743 | 0.750 / **0.886** | 0.821 / 0.743 |
+| 3 | 203 | 0.653 / 0.542 | 0.744 / 0.695 | 0.732 / 0.729 | 0.755 / **0.837** |
+| 5 | 51 | 0.544 / 0.392 | 0.618 / **0.725** | **0.755** / 0.706 | 0.672 / **0.745** |
+| NatLang | 21 | 0.571 / 0.571 | 0.643 / 0.571 | 0.560 / 0.571 | 0.738 / 0.762 |
 
-**Reading (depth).** No sharp “only the loop works past depth D” cliff: accuracy
-degrades gradually; d=5 still well above chance. At shallow depths MLP ≈ or >
-loop.8; at **d=5** loop.8 can edge MLP by a few points (0.6B/4B/DSV4) or MLP
-stays ahead (8B). Thin bins (n=21–51) are noisy — report n, do not overfit
-NatLang. Full-val `stratum_depth` shows the same gentle depth slope with larger n
+**Reading (depth).** No sharp “only the loop works past depth D” cliff:
+accuracy degrades gradually; d=5 still above chance. The DSV4 loop win is
+concentrated at **shallow** depths (d0/d1: loop.8 +10–15pt) plus d3/d5 — the
+frontier model's in-context deduction is strong exactly where the task is
+short-horizon; the residual head lags there but holds d=2. At 4B the d=5 bin
+is the only loop edge at Qwen scale (0.725 vs 0.618); at 0.6B the loop
+collapses with depth (d5 loop.8 0.392 ≪ mlp 0.544). Thin bins (n=21–51) are
+noisy — report n, do not overfit NatLang. Full-val `stratum_depth` shows the same gentle depth slope with larger n
 (d3 n=488, d5 n=120).
 
 ### Cross-task takeaway (BoolQ + RuleTaker)
 
 | claim | BoolQ full-val | RuleTaker n2k |
 |---|---|---|
-| one-pass MLP ≈ fair loop.8 | yes (tie / ±1pt; +5 at 0.6B) | yes (Qwen +1–3; DSV4 −2) |
+| one-pass MLP ≈ fair loop.8 | yes (tie / ±1pt; +5 at 0.6B) | yes (Qwen +2–+9; DSV4 −7 \*\*) |
 | loop.zero understates the loop | yes | yes (esp. DSV4) |
 | scale: no loop monopoly | yes | yes |
 | serial-depth cliff for frozen models | n/a | **not observed** |
 
 **Paper sentence.** On BoolQ (full val) and RuleTaker (n2k, matched loop rows), a
-small MLP on the frozen last residual matches a fair 8-shot next-token
-classifier across Qwen3 scales and DeepSeek-V4; zero-shot understates the loop;
+small MLP on the frozen last residual **beats** a fair 8-shot next-token
+classifier at every Qwen3 scale (significantly at 0.6B) and loses only to the
+frontier-MoE loop on the serial-deduction task; zero-shot understates the loop;
 depth degrades gradually without a clean loop-only regime.
 
 **Limits (cite with the numbers).** n2k is a fixed seed subsample, not full
-RuleTaker test; loop_val=400 ≠ full val (use `loop_matched`); depth mix is
-natural (d3 fat); supervision asymmetry (head sees 2k labels, loop sees 8 demos);
-no paired significance tests yet; 8B required L40S (T4 OOM on loop).
+RuleTaker test; loop_val=400 ≠ full val (paired tests are on those 400 rows);
+depth mix is natural (d3 fat); supervision asymmetry (head sees 2k labels, loop
+sees 8 demos). All four canonicals re-run at batch 8 on pinned GPUs after the
+pre-fix loop-cache incident (Ext 15) — earlier versions of this table carried
+inflated loop.8 at 4B/8B (0.928/0.915, ghost caches) and a stale 0.625 at 0.6B.
 
 ![RuleTaker n2k overall + depth](ruletaker_depth_strata.png)
 
@@ -313,7 +327,8 @@ in-context structure.
 difficulty is partly eval-setup (Borchmann 2025) — we score options jointly
 (fair MC); pretraining contamination possible (standard leaderboard task);
 linear.max can slightly beat MLP mean (0.6B 0.507 vs 0.487) — report both;
-0.6B was MPS local, 4B/8B L40S, DSV4 B300.
+0.6B was MPS local, 4B/8B L40S, DSV4 B300 — all four canonicals re-verified
+2026-08-10 at batch 8 on pinned GPUs (H200/B200/B300) within ≤0.7pt (Ext 15).
 
 ## Ext 13 — Arm A: budget-matched loop k-curve + paired significance (BoolQ, Qwen3 scale arc)
 
@@ -442,11 +457,11 @@ Ext 11 cache). Artifacts: `results/ruletaker_layersweep_4b.json` +
 (2/3 through the 36-layer stack) **significantly** beats the final layer, in
 contrast to BoolQ-0.6B's ns. L24 vs L18 +4.8pt \*\*; L24 vs L30 +2.0pt ns.
 Same-rows loop comparison (L24 on the loop's exact val[:400]): **readout
-0.7725 vs loop.8 0.7225 = +5.0pt**, where Ext 11's final-layer tap gave only
-+1.1pt loop-matched (0.734 vs 0.723). Placement is therefore a **real,
+0.7725 vs loop.8 0.6975 = +7.5pt**, where Ext 11's final-layer tap gives
++4.0pt loop-matched (0.738 vs 0.698, batch-8 canonical). Placement is therefore a **real,
 significant lever at 4B on RuleTaker** — it widens the readout's margin over
-the loop ~5×. (Consistency: this run's L35 mlp 0.7438 reproduces Ext 11's
-canonical 0.7427 within GPU-train nondeterminism.) Reading: the deeper the
+the loop ~5×. (Consistency: this run's L35 mlp 0.7438 reproduces the Ext 15 batch-8
+canonical 0.7475 within GPU-train nondeterminism.) Reading: the deeper the
 serial reasoning a task demands, the more the answer concentrates in
 mid-depth residuals — final-layer specialization toward next-token form costs
 more on RuleTaker than on BoolQ.
@@ -473,8 +488,9 @@ Ext 11 cache). Artifacts: `results/ruletaker_layersweep_8b.json` +
 +0.048], p=0.040 \***; L30 vs L35 +2.4pt, CI95 [+0.003, +0.045], p=0.031
 \*.
 Same-rows loop (val[:400], the exact loop rows sliced from the rowpreds):
-readout **L35 loop-matched 0.7425 vs loop.8 0.7125 = +3.0pt**; at the **L24**
-tap (loop-rows readout 0.7575) the margin over the loop widens to **+4.5pt**.
+readout **L35 loop-matched 0.7525 vs loop.8 0.730 = +2.3pt** (batch-8
+canonical); at the **L24** tap (loop-rows readout 0.7575) the margin over the
+loop widens to **+2.8pt**.
 
 **Reading — task-type, not scale.** The significant mid-depth tap *survives
 at 8B* (+2.5pt, p=0.040), which resolves Ext 14b's open question: the
@@ -503,12 +519,12 @@ work — see `paper/implciation-early-layer.md` §2.
 
 ![Readout probe placement sweeps — BoolQ 0.6B and RuleTaker 4B](layersweep_placement.png)
 
-*Figure: one-pass readout accuracy vs tapped residual layer at both scales
-(mlp red, ± per-seed std band; linear dashed; loop arms as horizontal
-references). Left: BoolQ 0.6B, placement gap ns (p=0.18). Right: RuleTaker
-4B, mid-depth tap significantly beats the final layer (+3.8pt, p=2.7e-03
-**). Ext 14c (RuleTaker 8B) repeats the significant mid-depth tap at the same
-L24/36 fraction — see table above. Regenerate: `python plot_layersweep.py`.*
+*Figure: one-pass readout accuracy vs tapped residual layer, all 12
+task×model cells (mlp red, ± per-seed std band; linear dashed; best loop arm
+and loop.zero as horizontal references; white diamond = final-layer readout
+when it is not itself a swept layer). Paired McNemar annotation per panel.
+Mid-depth taps beat the final layer significantly at 6/12 cells and never
+lose significantly. Regenerate: `python plot_layersweep.py`.*
 
 ### Ext 14d — BoolQ full val, Qwen3-8B: placement becomes significant with scale
 
@@ -543,29 +559,109 @@ one-pass method most needs it. L18 (0.845) actually *loses* to the loop — so
 too-early taps are worse than the final layer, and the optimum is deep
 (L30/36 = 83% vs 64% at 0.6B).
 
-### Cross-sweep summary (all four)
+### Cross-sweep summary — the full 12-cell placement matrix (all batch 8)
 
-| sweep | model | task | best layer | optimum depth | mlp (best) | mlp (final) | final vs loop | paired p |
+Completed 2026-08-10 (Ext 15): DSV4 BoolQ/RuleTaker sweeps, the first-ever ARC
+sweeps (all four models), and the two missing Qwen cells (0.6B RuleTaker,
+4B BoolQ). Paired McNemar: best swept tap vs final layer, same rows.
+
+| task | model | best tap | depth | mlp (best) | mlp (final) | best−final | paired p |
 |---|---|---|---|---|---|---|---|
-| Ext 14 | 0.6B | BoolQ | L18 | 64% | 0.761 | 0.746 | +1.5pt (tie loop.64 0.715) | p=0.18 ns |
-| Ext 14b | 4B | RuleTaker | L24 | 67% | 0.781 | 0.744 | +3.0pt (widen +1→+5pt) | **2.8e-03 \*\*** |
-| Ext 14c | 8B | RuleTaker | L24 | 67% | 0.778 | 0.758 | +3.0pt (widen +3→+4.5pt) | **0.040 \*** |
-| Ext 14d | 8B | BoolQ | L30 | 83% | 0.889 | 0.878 | tie (loop catches at last layer) | **0.016 \*** |
+| BoolQ | Qwen3-0.6B | L18 | 64% | 0.761 | 0.746 | +0.010 | 0.18 ns |
+| BoolQ | Qwen3-4B | L24 | 67% | 0.868 | 0.856 | +0.011 | **0.038 \*** |
+| BoolQ | Qwen3-8B | L30 | 83% | 0.889 | 0.878 | +0.011 | **0.016 \*** |
+| BoolQ | DeepSeek-V4 | L36 | 86% | 0.900 | 0.896 | +0.005 | 0.20 ns |
+| RuleTaker | Qwen3-0.6B | L18 | 64% | 0.688 | 0.650 | +0.036 | **0.020 \*** |
+| RuleTaker | Qwen3-4B | L24 | 67% | 0.781 | 0.744 | +0.038 | **2.8e-03 \*\*** |
+| RuleTaker | Qwen3-8B | L24 | 67% | 0.778 | 0.758 | +0.025 | **0.040 \*** |
+| RuleTaker | DeepSeek-V4 | L29 | 67% | 0.776 | 0.765 | +0.021 | 0.057 ns |
+| ARC | Qwen3-0.6B | L26 | 93% | 0.500 | 0.492 | +0.013 | 0.082 ns |
+| ARC | Qwen3-4B | L29 | 81% | 0.856 | 0.841 | +0.022 | **2.2e-04 \*\*\*** |
+| ARC | Qwen3-8B | L35 | 97% | 0.909 | 0.909 | +0.001 | 1.00 ns |
+| ARC | DeepSeek-V4 | L42 | 98% | 0.951 | 0.951 | −0.005 | 0.29 ns |
 
-**Reading.** Placement was *not* a settled non-issue: it's significant at 3/4
-sweeps now (only 0.6B/BoolQ is ns). Two clear patterns:
+**Reading.** Placement was *not* a settled non-issue: the mid-depth tap wins
+significantly at **6/12 cells** and **never loses significantly**. Patterns:
 
-- **Task.** RuleTaker's serial-depth reasoning creates larger placement gaps
-  (+2.5 to +3.8pt) — the answer "concentrates" mid-depth and final-layer
-  specialization costs more on deductive tasks. BoolQ's passage-grounded
-  extraction tolerates the final layer better (+1pt gaps, significant only
-  at scale).
-- **Scale.** The optimum depth *drifts right* with model size (64% → 67%
-  → 83%) — bigger models keep improving the verdict representation later
-  into the stack, but still reach a peak before the output layer. The
-  terminal decline is shallower at scale (+1.1pt vs +2.5 to +3.8pt earlier),
-  but still measurable and, critically, the loop catches the final-layer
-  readout at 8B while the best mid-layer tap stays ahead. This makes the
-  placement sweep *defensive* at small scale and increasingly *required* as
-  scale approaches the frontier (where the readout's margin over the loop
-  matters most).
+- **Optimum depth is task-stable, not scale-driven.** BoolQ/RuleTaker peak at
+  64–86% depth at every scale; the RuleTaker optimum stays at 2/3 depth from
+  0.6B through DSV4. ARC's optimum drifts to the final layer at ≥8B — once the
+  parametric answer saturates the residual, late-layer specialization stops
+  costing anything.
+- **Effect size tracks task–model mismatch.** Largest on RuleTaker at Qwen
+  scale (+2.1 to +3.8pt) and ARC at ≤4B (+1.3 to +2.2pt); flat where the
+  readout already saturates (DSV4 ARC 0.951) or is uniformly weak (0.6B ARC).
+- **Placement converts parity into wins.** Where the loop catches the
+  final-layer readout (BoolQ 8B: L35 ties loop.16; ARC 4B), the best mid-layer
+  tap re-establishes or widens the readout's lead.
+
+Causal attribution (late-layer next-token specialization) still needs the
+per-layer next-token probe flagged as future work — see
+`paper/implciation-early-layer.md` §2.
+
+## Ext 15 — campaign standardization (2026-08-10): batch-8 rebaseline, ghost-cache purge, full matrix
+
+Three coupled pieces of house-cleaning that put every canonical number on the
+same footing.
+
+### Ext 15a — the pre-fix loop-cache incident (found + fixed)
+
+Pre-Aug-10 runs wrote loop-score caches keyed by (task, layer, pad) **without
+a batch or protocol fingerprint**. Those files survived the earlier purge of
+pre-fix run JSONs and silently supplied loop scores to later runs — Ext 14b/14c
+thus "reproduced" loop.8 = 0.928/0.915 at 4B/8B RuleTaker, numbers **no
+post-fix run ever produced**. Found when fresh recomputes diverged; confirmed
+by the signature: pre-fix runs agree with each other, post-fix runs agree with
+each other, readouts were never affected (the fix touched the k-shot loop
+prompt path only — loop.zero and all readouts matched throughout).
+
+**Actions.** Purged all 59 old-key cache files from the volume plus local
+strays and legacy flat files; cache keys now embed batch (`_b<B>`,
+`bench.py`); volume hygiene + ops notes in `modal-notes.md`; `scripts/vol
+caches --old-key` must stay empty. Affected historical run JSONs retained for
+audit but no longer cited. Deltas vs the pre-incident tables (RuleTaker
+loop.8): 0.6B 0.625→**0.545**, 4B 0.928→**0.698**, 8B 0.915→**0.730**, DSV4
+0.798→**0.838** (DSV4's was *deflated* — the contamination did not favor
+either arm systematically). ARC/BoolQ canonicals already carried post-fix
+numbers and stood.
+
+### Ext 15b — batch-8 standard + the measured batch sensitivity
+
+Every canonical is now **batch 8 on a model-pinned GPU** (0.6B/4B H200, 8B
+B200, DSV4 B300; recorded in run meta and enforced in cache keys). Measured
+sensitivity, kept as a datapoint (`results/ruletaker_layersweep_dsv4_b4.json`):
+DSV4 FP8 at b4 vs b8 — readout 0.7775/0.7647, loop.zero 0.595/0.605, loop.8
+0.8325/0.8375 — **≤1.3pt** (batch-shape kernel tiling; BF16 Qwen ≤0.5pt across
+b2–b8 and across GPU models). The initially suspected 4pt "batch effect" on
+DSV4 RuleTaker loop.8 was the pre-fix artifact, not numerics.
+
+### Ext 15c — what the corrected record shows
+
+Readout vs loop.8, paired, all batch 8 (winner in bold; n = loop rows):
+
+| task | 0.6B | 4B | 8B | DeepSeek-V4 |
+|---|---|---|---|---|
+| BoolQ | **readout +3.8**\*\*\* (vs loop.64) | loop +0.7 ns | loop +0.7 ns | loop +0.9 ns |
+| RuleTaker n2k | **readout +9.3**\*\* | readout +4.0 ns | readout +2.3 ns | **loop +7.4**\*\* |
+| ARC-Challenge | **loop +10.6**\*\*\* | **loop +4.6**\*\*\* | loop +0.5 ns | loop +0.7 ns |
+
+**The corrected narrative is sharper than the pre-incident one.** The loop
+wins in exactly two regimes: (1) **small models on parametric-knowledge ARC**
+— few-shot exemplars teach a task format the residual head must otherwise
+learn from labels, and the gap closes monotonically with scale (−10.6 → −4.6
+→ −0.5 → −0.7pt); (2) **frontier MoE on formal serial deduction** (RuleTaker
+at DSV4, driven by the shallow-depth strata). Everywhere else — BoolQ at every
+scale, RuleTaker at every Qwen scale — the one-pass readout wins or ties, and
+a 60–70%-depth tap only widens its margin (6/12 significant placement wins,
+zero significant losses). The pre-incident claim that "the loop dominates
+RuleTaker at ≥4B" was a ghost-cache artifact; in the clean record the readout
+*beats* the loop there.
+
+**Runs added/completed here** (all batch 8): DSV4 BoolQ sweep `4e807a`, DSV4
+RuleTaker sweep `77e037` (+ b4 sensitivity `373655`), ARC sweeps `ab30b3`
+(0.6B) / `a6d337` (4B) / `d61752` (8B) / `9a3e5d` (DSV4), 0.6B RuleTaker sweep
+`e5aad1`, 4B BoolQ sweep `c8616d`, RuleTaker rebaselines `a8e559` (4B) /
+`57a235` (8B). Artifacts: `results/*layersweep*.json{,_paired}` +
+`results/ruletaker_{qwen4b,qwen8b,dsv4}_n2k.json`; per-layer heads persisted
+under `cloud_bench_cache/<slug>/<task>/heads/`. Publication tables:
+`paper/main_tables.tex` → `paper/main_tables.pdf` (tectonic).

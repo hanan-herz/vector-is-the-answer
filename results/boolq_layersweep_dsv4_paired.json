@@ -1,0 +1,36 @@
+{
+  "npz": "cloud_bench_cache/deepseek-ai__DeepSeek-V4-Flash-0731/boolq/cache/vec_t9427_v3270_p384_b8_layersweep_rowpreds.npz",
+  "n": 3270,
+  "reports": [
+    {
+      "pair": "readout.mlp.L36 vs readout.mlp.L42",
+      "acc_a": 0.9015290519877676,
+      "acc_b": 0.8969418960244648,
+      "diff": 0.0045871559633027525,
+      "ci95": [
+        -0.0021406727828746177,
+        0.011314984709480122
+      ],
+      "both_right": 2880,
+      "a_only": 68,
+      "b_only": 53,
+      "neither": 269,
+      "mcnemar_p": 0.20292429055143762
+    },
+    {
+      "pair": "readout.mlp.L29 vs readout.mlp.L42",
+      "acc_a": 0.899388379204893,
+      "acc_b": 0.8969418960244648,
+      "diff": 0.0024464831804281344,
+      "ci95": [
+        -0.0045871559633027525,
+        0.009480122324159021
+      ],
+      "both_right": 2865,
+      "a_only": 76,
+      "b_only": 68,
+      "neither": 261,
+      "mcnemar_p": 0.5598211377107967
+    }
+  ]
+}

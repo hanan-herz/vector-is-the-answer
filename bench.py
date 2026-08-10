@@ -85,8 +85,8 @@ RESULTS_DIR = os.environ.get("BENCH_RESULTS_DIR",
 #     latest.json            # last successful full result for this task
 #     stages.jsonl           # progressive stage dumps for THIS task only
 #     heads/head_l{L}.npz     # trained readout for this task (latest)
-#     cache/vec_t{N}_v{M}_l{L}_p{P}.npz
-#     cache/loop_v{M}_l{L}_p{P}.npz
+#     cache/vec_t{N}_v{M}_l{L}_p{P}_b{B}.npz
+#     cache/loop_v{M}_l{L}_p{P}_b{B}.npz
 #
 # model_slug always comes from resolve_model(alias_or_id) so `0.6B` and
 # `Qwen/Qwen3-0.6B` land in the same tree (Qwen__Qwen3-0.6B).
@@ -445,34 +445,41 @@ def _run_bench_remote(
     }
 
 
-def cache_path(cache_dir, max_train, max_val, tag="", layer=None, pad_max=PAD_MAX):
+def cache_path(cache_dir, max_train, max_val, tag="", layer=None,
+               pad_max=PAD_MAX, batch=None):
     """Path under task cache/. Task + model live in the directory tree, not the
-    filename. Layer + pad_max MUST stay in the key (stale-vector FIXME)."""
+    filename. Layer + pad_max MUST stay in the key (stale-vector FIXME); batch
+    MUST too: batched-kernel numerics are batch-composition dependent (DSV4
+    FP8 moved RuleTaker loop.8 0.7975 -> 0.8375 between b=4 and b=8 on the
+    same rows/weights), so vectors or loop scores computed at one batch size
+    must never silently replay for a run at another. batch=None keeps the old
+    key shape for external/back-compat callers only."""
     ltag = f"_l{layer}" if layer is not None else ""
+    btag = f"_b{batch}" if batch is not None else ""
     if tag == "_loop" or (tag and "loop" in tag):
-        fname = f"loop_v{max_val}{ltag}_p{pad_max}.npz"
+        fname = f"loop_v{max_val}{ltag}_p{pad_max}{btag}.npz"
     else:
-        fname = f"vec_t{max_train}_v{max_val}{ltag}_p{pad_max}{tag}.npz"
+        fname = f"vec_t{max_train}_v{max_val}{ltag}_p{pad_max}{btag}{tag}.npz"
     path = os.path.join(cache_dir, fname)
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     return path
 
 
 def cache_vectors(max_train, max_val, tag="", cache_dir=CACHE_DIR,
-                  layer=None, pad_max=PAD_MAX, **arrays):
+                  layer=None, pad_max=PAD_MAX, batch=None, **arrays):
     """Persist computed hidden vectors + labels so reruns/seed sweeps skip the
     expensive forward passes. Save async stays out of the training loop; a
     blocking save at exit is acceptable here (one-shot per run)."""
     path = cache_path(cache_dir, max_train, max_val, tag,
-                      layer=layer, pad_max=pad_max)
+                      layer=layer, pad_max=pad_max, batch=batch)
     np.savez(path, **arrays)
     log(f"[cache] saved {path}")
 
 
 def load_cached_vectors(max_train, max_val, keys, tag="", cache_dir=CACHE_DIR,
-                        layer=None, pad_max=PAD_MAX):
+                        layer=None, pad_max=PAD_MAX, batch=None):
     path = cache_path(cache_dir, max_train, max_val, tag,
-                      layer=layer, pad_max=pad_max)
+                      layer=layer, pad_max=pad_max, batch=batch)
     if not os.path.exists(path):
         return None
     with np.load(path) as z:
@@ -1204,7 +1211,7 @@ def run_bench(size="0.6B", device=None, max_train=None, max_val=None,
     vec_cache = load_cached_vectors(
         max_train, max_val,
         ["last_tr", "ctx_tr", "last_va", "ctx_va", "ytr", "yva"],
-        cache_dir=cache_dir, layer=last_layer)
+        cache_dir=cache_dir, layer=last_layer, batch=batch)
     if vec_cache is not None:
         log("[cache] loaded hidden vectors")
         last_tr, ctx_tr = vec_cache["last_tr"], vec_cache["ctx_tr"]
@@ -1217,7 +1224,7 @@ def run_bench(size="0.6B", device=None, max_train=None, max_val=None,
         cache_vectors(max_train, max_val,
                       last_tr=last_tr, ctx_tr=ctx_tr,
                       last_va=last_va, ctx_va=ctx_va, ytr=ytr, yva=yva,
-                      cache_dir=cache_dir, layer=last_layer)
+                      cache_dir=cache_dir, layer=last_layer, batch=batch)
 
     log("[2/5] one-pass readouts (final-token / full-context)...")
     res, readout_artifacts = readout_report(
@@ -1291,7 +1298,7 @@ def run_bench(size="0.6B", device=None, max_train=None, max_val=None,
                    if load_cached_vectors(
                        max_train, max_val,
                        ["last_tr", "ctx_tr", "last_va", "ctx_va", "ytr", "yva"],
-                       cache_dir=cache_dir, layer=l) is None]
+                       cache_dir=cache_dir, layer=l, batch=batch) is None]
         if missing:
             log(f"[sweep] fused capture of {len(missing)} uncached layer(s) "
                 f"{missing} in ONE forward per split")
@@ -1304,13 +1311,13 @@ def run_bench(size="0.6B", device=None, max_train=None, max_val=None,
                               last_tr=tr_vecs[l][0], ctx_tr=tr_vecs[l][1],
                               last_va=va_vecs[l][0], ctx_va=va_vecs[l][1],
                               ytr=ytr, yva=yva,
-                              cache_dir=cache_dir, layer=l)
+                              cache_dir=cache_dir, layer=l, batch=batch)
 
         for l in sweep_layers:
             _vc = load_cached_vectors(
                 max_train, max_val,
                 ["last_tr", "ctx_tr", "last_va", "ctx_va", "ytr", "yva"],
-                cache_dir=cache_dir, layer=l)
+                cache_dir=cache_dir, layer=l, batch=batch)
             if _vc is None:  # pragma: no cover - guarded by fused fill above
                 raise RuntimeError(
                     f"[sweep] L{l} vectors missing after fused capture")
@@ -1340,9 +1347,11 @@ def run_bench(size="0.6B", device=None, max_train=None, max_val=None,
                 f"mlp={layer_sweep_res[str(l)]['mlp'][0]:.4f} "
                 f"(head -> {_head_rel})")
         cache_vectors(max_train, max_val, tag="_layersweep_rowpreds",
-                      cache_dir=cache_dir, pad_max=PAD_MAX, **sweep_rowpreds)
+                      cache_dir=cache_dir, pad_max=PAD_MAX, batch=batch,
+                      **sweep_rowpreds)
         _rp_path = cache_path(cache_dir, max_train, max_val,
-                              "_layersweep_rowpreds", pad_max=PAD_MAX)
+                              "_layersweep_rowpreds", pad_max=PAD_MAX,
+                              batch=batch)
         log(f"[preds] saved per-layer sweep preds -> {_rp_path}")
         best_l = max(sweep_layers,
                      key=lambda l: layer_sweep_res[str(l)]["mlp"][0])
@@ -1444,7 +1453,7 @@ def run_bench(size="0.6B", device=None, max_train=None, max_val=None,
     preds_by_key = None
     loop_cache = load_cached_vectors(0, loop_val, lk, tag="_loop",
                                      cache_dir=cache_dir, layer=last_layer,
-                                     pad_max=loop_pad_max)
+                                     pad_max=loop_pad_max, batch=batch)
     if loop_cache is not None:
         log("[cache] loaded loop scores (overall only — no per-row preds; "
             "skip depth×loop strata unless you re-run without cache)")
@@ -1454,7 +1463,8 @@ def run_bench(size="0.6B", device=None, max_train=None, max_val=None,
             model, tok, train, loop_val_rows, kk, batch=batch,
             pad_max=loop_pad_max, answer_set=answer_set)
         cache_vectors(0, loop_val, tag="_loop", cache_dir=cache_dir,
-                      layer=last_layer, pad_max=loop_pad_max, **loops)
+                      layer=last_layer, pad_max=loop_pad_max, batch=batch,
+                      **loops)
         # Persist per-row preds (readout + loop + gold) on the shared loop rows
         # so paired significance tests (McNemar) run CPU-only off artifacts.
         # Cache note: the loop acc cache above stores overall acc only, so
@@ -1466,7 +1476,8 @@ def run_bench(size="0.6B", device=None, max_train=None, max_val=None,
         row_preds.update({k: np.asarray(p, dtype=int)
                           for k, p in preds_by_key.items()})
         cache_vectors(0, loop_val, tag="_rowpreds", cache_dir=cache_dir,
-                      layer=last_layer, pad_max=loop_pad_max, **row_preds)
+                      layer=last_layer, pad_max=loop_pad_max, batch=batch,
+                      **row_preds)
         log(f"[preds] saved per-row preds (readout + {list(preds_by_key)}) "
             f"on {len(lsel)} shared rows")
     for k in loops:

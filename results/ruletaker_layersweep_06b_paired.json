@@ -1,0 +1,36 @@
+{
+  "npz": "cloud_bench_cache/Qwen__Qwen3-0.6B/ruletaker/cache/vec_t2000_v1000_p384_b8_layersweep_rowpreds.npz",
+  "n": 1000,
+  "reports": [
+    {
+      "pair": "readout.mlp.L18 vs readout.mlp.L27",
+      "acc_a": 0.692,
+      "acc_b": 0.656,
+      "diff": 0.036,
+      "ci95": [
+        0.007,
+        0.065
+      ],
+      "both_right": 561,
+      "a_only": 131,
+      "b_only": 95,
+      "neither": 213,
+      "mcnemar_p": 0.01970120762942994
+    },
+    {
+      "pair": "readout.mlp.L18 vs readout.mlp.L23",
+      "acc_a": 0.692,
+      "acc_b": 0.664,
+      "diff": 0.028,
+      "ci95": [
+        0.002,
+        0.054
+      ],
+      "both_right": 590,
+      "a_only": 102,
+      "b_only": 74,
+      "neither": 234,
+      "mcnemar_p": 0.04152492763459923
+    }
+  ]
+}

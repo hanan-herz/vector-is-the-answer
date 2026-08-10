@@ -1,0 +1,36 @@
+{
+  "npz": "cloud_bench_cache/Qwen__Qwen3-8B/arc/cache/vec_t1000_v1170_p384_b8_layersweep_rowpreds.npz",
+  "n": 1165,
+  "reports": [
+    {
+      "pair": "readout.mlp.L30 vs readout.mlp.L35",
+      "acc_a": 0.9090128755364807,
+      "acc_b": 0.9081545064377683,
+      "diff": 0.0008583690987124463,
+      "ci95": [
+        -0.0068669527896995704,
+        0.008583690987124463
+      ],
+      "both_right": 1048,
+      "a_only": 11,
+      "b_only": 10,
+      "neither": 96,
+      "mcnemar_p": 1.0
+    },
+    {
+      "pair": "readout.mlp.L24 vs readout.mlp.L35",
+      "acc_a": 0.9055793991416309,
+      "acc_b": 0.9081545064377683,
+      "diff": -0.002575107296137339,
+      "ci95": [
+        -0.012875536480686695,
+        0.007725321888412017
+      ],
+      "both_right": 1038,
+      "a_only": 17,
+      "b_only": 20,
+      "neither": 90,
+      "mcnemar_p": 0.7428293587290682
+    }
+  ]
+}

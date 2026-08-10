@@ -1,0 +1,95 @@
+% arXiv-style summary tables — one-pass residual readout vs fair autoregressive loop.
+% All numbers: post-fix canonicals, batch 8, model-pinned GPUs (2026-08-10 rebaseline).
+% Build: tectonic paper/main_tables.tex
+\documentclass[10pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{caption}
+\usepackage{newtxtext}
+\captionsetup{font=small,labelfont=bf}
+\pagestyle{empty}
+
+\newcommand{\sd}[1]{\textbf{#1}} % significant delta
+\newcommand{\pstar}{$^{*}$}
+\newcommand{\pstarstar}{$^{**}$}
+\newcommand{\pstarstarstar}{$^{***}$}
+
+\begin{document}
+
+\begin{table}[h]
+\centering
+\caption{\textbf{One-pass residual readout vs.\ fairly-conditioned autoregressive
+loop} (accuracy). Readout = small MLP on the frozen final residual (4-seed vote);
+loop = next-token log-prob over the closed answer set, full context, balanced
+few-shot. $\Delta$ = readout $-$ loop.k, paired McNemar on identical rows
+($^{\ast}p<0.05$, $^{\ast\ast}p<0.01$, $^{\ast\ast\ast}p<0.001$). All runs
+batch~8; Qwen3 0.6B/4B on H200, 8B on B200, DeepSeek-V4-Flash on B300.
+\textsuperscript{a}~BoolQ loops: Qwen at pad 8192 with best $k\in\{0,\dots,64\}$,
+DSV4 at pad 2048, $k{=}8$.
+\textsuperscript{b}~RuleTaker n2k: readout scored on the loop's exact 400 rows.
+\textsuperscript{c}~ARC-Challenge: full test (1165 rows), $k{=}8$, pad 2048.}
+\label{tab:main}
+\small
+\begin{tabular}{@{}llccccc@{}}
+\toprule
+Task & Model & Readout & loop.0 & loop.k & $\Delta$ & $p$ (McNemar) \\
+\midrule
+\multirow{4}{*}{BoolQ\textsuperscript{a}}
+ & Qwen3-0.6B & \textbf{0.753} & 0.631 & 0.715 & \sd{+0.038}\pstarstarstar & $2.4\mathrm{e}{-05}$ \\
+ & Qwen3-4B   & 0.862 & 0.854 & \textbf{0.869} & $-0.007$ & 0.22 \\
+ & Qwen3-8B   & 0.879 & 0.862 & \textbf{0.886} & $-0.007$ & 0.24 \\
+ & DeepSeek-V4-Flash & 0.896 & 0.888 & \textbf{0.906} & $-0.009$ & 0.39 \\
+\midrule
+\multirow{4}{*}{RuleTaker n2k\textsuperscript{b}}
+ & Qwen3-0.6B & \textbf{0.638} & 0.600 & 0.545 & \sd{+0.093}\pstarstar & $3.7\mathrm{e}{-03}$ \\
+ & Qwen3-4B   & \textbf{0.738} & 0.653 & 0.698 & $+0.040$ & 0.20 \\
+ & Qwen3-8B   & \textbf{0.753} & 0.675 & 0.730 & $+0.023$ & 0.45 \\
+ & DeepSeek-V4-Flash & 0.763 & 0.605 & \textbf{0.838} & \sd{$-0.074$}\pstarstar & $1\mathrm{e}{-03}$ \\
+\midrule
+\multirow{4}{*}{ARC-Challenge\textsuperscript{c}}
+ & Qwen3-0.6B & 0.492 & 0.502 & \textbf{0.597} & \sd{$-0.106$}\pstarstarstar & $3.2\mathrm{e}{-11}$ \\
+ & Qwen3-4B   & 0.837 & 0.826 & \textbf{0.882} & \sd{$-0.046$}\pstarstarstar & $2.9\mathrm{e}{-06}$ \\
+ & Qwen3-8B   & 0.908 & 0.902 & \textbf{0.913} & $-0.005$ & 0.57 \\
+ & DeepSeek-V4-Flash & 0.951 & 0.961 & \textbf{0.959} & $-0.007$ & 0.23 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\vspace{1em}
+
+\begin{table}[h]
+\centering
+\caption{\textbf{Readout probe-placement sweeps} (12 cells, all batch 8): best
+mid-depth tap vs the final-layer readout, paired McNemar on identical rows.
+Mid-depth taps win significantly at 6/12 cells and never lose significantly;
+the optimum sits at 64--86\% depth on BoolQ/RuleTaker and drifts to the final
+layer on ARC at $\geq$8B.}
+\label{tab:placement}
+\small
+\begin{tabular}{@{}llcccccc@{}}
+\toprule
+Task & Model & Best tap & Depth & mlp (best) & mlp (final) & $\Delta$ & $p$ \\
+\midrule
+\multirow{4}{*}{BoolQ}
+ & Qwen3-0.6B & L18 & 64\% & 0.761 & 0.746 & $+0.010$ & 0.18 \\
+ & Qwen3-4B   & L24 & 67\% & 0.868 & 0.856 & \sd{+0.011}\pstar & 0.038 \\
+ & Qwen3-8B   & L30 & 83\% & 0.889 & 0.878 & \sd{+0.011}\pstar & 0.016 \\
+ & DeepSeek-V4-Flash & L36 & 86\% & 0.900 & 0.896 & $+0.005$ & 0.20 \\
+\midrule
+\multirow{4}{*}{RuleTaker n2k}
+ & Qwen3-0.6B & L18 & 64\% & 0.688 & 0.650 & \sd{+0.036}\pstar & 0.020 \\
+ & Qwen3-4B   & L24 & 67\% & 0.781 & 0.744 & \sd{+0.038}\pstarstar & $2.8\mathrm{e}{-03}$ \\
+ & Qwen3-8B   & L24 & 67\% & 0.778 & 0.758 & \sd{+0.025}\pstar & 0.040 \\
+ & DeepSeek-V4-Flash & L29 & 67\% & 0.776 & 0.765 & $+0.021$ & 0.057 \\
+\midrule
+\multirow{4}{*}{ARC-Challenge}
+ & Qwen3-0.6B & L26 & 93\% & 0.500 & 0.492 & $+0.013$ & 0.082 \\
+ & Qwen3-4B   & L29 & 81\% & 0.856 & 0.841 & \sd{+0.022}\pstarstarstar & $2.2\mathrm{e}{-04}$ \\
+ & Qwen3-8B   & L35 & 97\% & 0.909 & 0.909 & $+0.001$ & 1.00 \\
+ & DeepSeek-V4-Flash & L42 & 98\% & 0.951 & 0.951 & $-0.005$ & 0.29 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\end{document}

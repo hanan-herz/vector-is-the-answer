@@ -1,0 +1,36 @@
+{
+  "npz": "cloud_bench_cache/deepseek-ai__DeepSeek-V4-Flash-0731/ruletaker/cache/vec_t2000_v1000_p384_layersweep_rowpreds_b8.npz",
+  "n": 1000,
+  "reports": [
+    {
+      "pair": "readout.mlp.L29 vs readout.mlp.L42",
+      "acc_a": 0.782,
+      "acc_b": 0.761,
+      "diff": 0.021,
+      "ci95": [
+        0.0,
+        0.041
+      ],
+      "both_right": 716,
+      "a_only": 66,
+      "b_only": 45,
+      "neither": 173,
+      "mcnemar_p": 0.057163645246602
+    },
+    {
+      "pair": "readout.mlp.L22 vs readout.mlp.L42",
+      "acc_a": 0.774,
+      "acc_b": 0.761,
+      "diff": 0.013,
+      "ci95": [
+        -0.012,
+        0.038
+      ],
+      "both_right": 685,
+      "a_only": 89,
+      "b_only": 76,
+      "neither": 150,
+      "mcnemar_p": 0.35023436538307345
+    }
+  ]
+}
