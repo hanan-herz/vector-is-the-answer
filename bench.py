@@ -1312,6 +1312,21 @@ def run_bench(size="0.6B", device=None, max_train=None, max_val=None,
             json.dump(result, fh, indent=2, default=str)
         log(f"[artifacts] extra copy -> {result_path}")
 
+    # If the artifact root is a mounted Modal volume, commit it here so the
+    # client's post-run listdir sees the complete tree the moment call.get()
+    # returns. Without this, volume writes commit asynchronously and the
+    # client can fetch a partial listing (stages + vec cache) and then fail
+    # promote with FileNotFoundError because runs/{run_id}.json hadn't
+    # committed yet (seen on the 4B Arm A run). Local paths skip this —
+    # volume.commit() only exists on Modal's Volume objects.
+    vol = globals().get("bench_volume")
+    if vol is not None and artifact_root == VOLUME_MOUNT:
+        try:
+            vol.commit()
+            log("[artifacts] volume committed")
+        except Exception as e:
+            log(f"[artifacts] WARN volume commit failed: {e}")
+
     return result
 
 
@@ -1402,10 +1417,29 @@ def main(
             print("[bench] --promote ignored with --no-fetch "
                   "(need a local runs/{run_id}.json; fetch first or promote manually)")
     else:
-        fetch_modal_artifacts(
-            result or {}, local_root=CACHE_DIR, fetch_cache=fetch_cache)
+        # Fetch + promote with retry: even with the remote's volume.commit(),
+        # listdir can lag the commit, so a first listing may miss the run
+        # JSON. Re-list a few times before giving up (fixes the 4B Arm A
+        # FileNotFoundError where promote ran against a 2-file partial pull).
+        src = None
+        for attempt in range(6):
+            fetch_modal_artifacts(
+                result or {}, local_root=CACHE_DIR, fetch_cache=fetch_cache)
+            if promote:
+                try:
+                    src = resolve_promote_src(result or {}, local_task)
+                    break
+                except FileNotFoundError:
+                    print(f"[bench] promote source not visible yet "
+                          f"(attempt {attempt + 1}/6); retrying in 5s")
+                    time.sleep(5)
+            else:
+                break
         if promote:
-            src = resolve_promote_src(result or {}, local_task)
+            if src is None:
+                raise FileNotFoundError(
+                    f"promote source never appeared under {local_task} "
+                    f"after 6 fetch attempts")
             promote_run_json(src, promote)
     print("[bench] done.")
 

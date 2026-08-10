@@ -26,7 +26,11 @@ All four runs are **full-val (9427 train / 3270 val)**, loop
 or beats** a fairly-conditioned autoregressive loop on BoolQ — winning by +5pts
 at 0.6B, tying at 4B and 8B, and ~1pt behind the 5×-context few-shot loop
 (ahead of zero-shot) at frontier MoE — in a **single forward pass, no
-KV-cache**. The loop never cleanly beats the readout at any scale.
+KV-cache**. The loop never cleanly beats the readout at any scale. Ext 13
+makes this statistical: with the loop given 64 balanced exemplars and a
+4× budget (pad 8192), the readout's 0.6B win stays significant
+(+3.8pt over the best loop, McNemar p=2.4e-05) and 4B/8B are exact ties
+(all ns) — supervision-starvation is ruled out as the explanation.
 
 ![One-pass readout vs fair loop on BoolQ](boolq_results.png)
 
@@ -305,11 +309,68 @@ and closes to within ~1pt of the 8-shot loop by 8B / DSV4 (~0.95) — showing th
 BoolQ/RuleTaker readout story extends to **parametric** knowledge, not only
 in-context structure.
 
-**Limits.** No ARC-Easy control; no paired significance; historical “Challenge”
+**Limits.** No ARC-Easy control; historical “Challenge”
 difficulty is partly eval-setup (Borchmann 2025) — we score options jointly
 (fair MC); pretraining contamination possible (standard leaderboard task);
 linear.max can slightly beat MLP mean (0.6B 0.507 vs 0.487) — report both;
 0.6B was MPS local, 4B/8B L40S, DSV4 B300.
+
+## Ext 13 — Arm A: budget-matched loop k-curve + paired significance (BoolQ, Qwen3 scale arc)
+
+Answers the two open objections to the headline: (a) the loop was
+supervision-starved (8 demos vs the readout's 9427 labels) — give it up to
+64 balanced exemplars and a 4× token budget (`loop_pad_max=8192`) and see if
+it catches the readout; (b) no significance testing — persist per-row preds
+(readout + every loop arm + gold) on the same 3270 val rows and run McNemar
+exact + paired bootstrap. Spec: `paper/budget-matched-loop.md`; harness:
+`bench.py` (per-row persistence) + `rowpreds_stats.py` (CPU-only stats off the
+`*_rowpreds.npz`). Runs on Modal B300; run_ids `20260810T045717_d0db45` (0.6B),
+`20260810T060456_756b72` (4B), `20260810T060457_ae600c` (8B).
+
+**k-curve (acc), full val, loop pad 8192:**
+
+| arm | 0.6B | 4B | 8B |
+|---|---|---|---|
+| loop.zero | 0.631 | 0.854 | 0.862 |
+| loop.8 | 0.645 | 0.863 | 0.876 |
+| loop.16 | 0.669 | 0.864 | **0.886** |
+| loop.32 | 0.715 | 0.861 | 0.880 |
+| loop.64 | 0.715 | **0.869** | 0.883 |
+| readout (seed vote) | **0.753** | 0.862 | 0.879 |
+| readout (per-seed mean) | 0.746 | 0.857 | 0.878 |
+
+**Paired tests (readout seed-vote vs best loop, n=3270 shared rows):**
+
+| | diff | CI95 (bootstrap) | McNemar p |
+|---|---|---|---|
+| 0.6B: readout − loop.64 | **+0.038** | [+0.021, +0.056] | 2.4e-05 *** |
+| 4B: readout − loop.64 | −0.007 | [−0.018, +0.004] | 0.22 ns |
+| 8B: readout − loop.16 | −0.007 | [−0.017, +0.004] | 0.24 ns |
+
+Plateau checks (consecutive loop arms): at 0.6B loop.64−loop.32 = −0.0003
+(p=1.00, a perfect null — the curve has converged); at 4B the only significant
+step is k=32→64 (+0.008 **, sub-1pt); at 8B the curve peaks at k=16 and wobbles
+(16→32 −0.006 ns, 32→64 +0.003 ns). The loop's supervision objection is
+answered at every scale: **8× the shots and 4× the budget never move the loop
+past the readout where the readout was winning, and never produce a
+significant loop win anywhere.**
+
+**Reading.** The scale arc is now statistically defended, not eyeballed:
+readout **wins big and significantly at 0.6B** (+3.8pt, CI excludes zero by
+2pt) where the decoder cannot express what the residual holds; **exact tie at
+4B and 8B** (every readout-vs-loop comparison ns at n=3270 — sub-1pt gaps are
+unresolvable at this n). The "loop never cleanly beats the readout" claim
+survives its strongest test. One estimator note: `last.mlp` headlines are
+per-seed means; the persisted readout preds are the 4-seed majority vote,
+worth ~+0.5pt at both scales — both reported above, and the vote is what a
+deployment would use. Artifacts: `results/boolq_budget_06b.json` /
+`_4b.json` / `_8b.json` + `*_paired.json`.
+
+**Also fixed here.** Modal fetch/promote race: the client listed the volume
+before the remote's writes committed, pulled a partial tree, and crashed
+promote with FileNotFoundError (hit on the 4B/8B clients). `run_bench` now
+commits the volume before returning, and the client retries fetch+promote
+6× with 5s backoff.
 
 ![ARC-Challenge full: readout vs fair loop](arc_results.png)
 
