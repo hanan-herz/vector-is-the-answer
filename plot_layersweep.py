@@ -58,8 +58,13 @@ for row, task in enumerate(TASKS):
         lin = np.array([acc(ls[l]["linear"]) for l in layers])
 
         # final-layer readout (last.mlp) — add as a diamond if not swept
-        last_layer = int(d["meta"].get("n_layers", L.max()) - 1)
+        last_layer = int(d["meta"].get("n_layers", L.max() + 1) - 1)
         last_mlp = acc(d["last.mlp"])
+
+        # plateau onset: first swept layer within 1pt of the final-layer readout
+        onset = next((int(l) for l, v in zip(L, mlp) if v >= last_mlp - 0.01), None)
+        if onset is not None and onset < last_layer:
+            ax.axvspan(onset, last_layer, color=COL_MLP, alpha=0.07, zorder=0)
         if last_layer not in L:
             ax.scatter([last_layer], [last_mlp], marker="D", s=55,
                        facecolor="white", edgecolor=COL_MLP, lw=2.0, zorder=5,
@@ -96,6 +101,8 @@ for row, task in enumerate(TASKS):
                    f"L{final_swept}={mlp[-1]:.3f}\n{r['diff']:+.3f}  {pstr} {sym}")
         else:
             txt = f"best swept L{L[best_i]} = {mlp[best_i]:.3f}"
+        if onset is not None and onset < last_layer:
+            txt += f"\nplateau from L{onset}/{last_layer} ({onset / last_layer * 100:.0f}%)"
         frac_x, ha = (0.45, "left") if best_i < len(L) / 2 else (0.55, "right")
         ax.annotate(txt, xy=(L[best_i], mlp[best_i]),
                     xytext=(frac_x, 0.25), textcoords="axes fraction",
@@ -115,8 +122,9 @@ for row, task in enumerate(TASKS):
         if row == 0:
             ax.legend(fontsize=7, loc="upper left", framealpha=0.9)
 
-fig.suptitle("Readout placement sweeps (all batch 8) — mid-depth taps significantly beat the final layer "
-             "at 6/12 cells, never lose significantly", fontsize=13, y=1.005)
+fig.suptitle("Readout placement sweeps (all batch 8) — mid-depth taps significantly beat the final layer at 6/12 cells,\n"
+             "never lose significantly; shaded band = plateau onset (first layer within 1pt of the final-layer readout)",
+             fontsize=12.5, y=1.01)
 fig.tight_layout()
 fig.savefig("layersweep_placement.png", dpi=150, bbox_inches="tight")
 print("saved layersweep_placement.png")
