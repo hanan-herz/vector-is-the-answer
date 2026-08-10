@@ -66,7 +66,7 @@ def log(*a):
 PAD_MAX = 384
 # Loop arm's own truncation budget. Default 2048 (not PAD_MAX): at 384
 # left-truncation eats the prepended few-shot exemplars on long rows and k=8
-# silently collapses to zero-shot (Ext 9b caveat). Deliberately pro-baseline
+# silently collapses to zero-shot (truncation caveat). Deliberately pro-baseline
 # (loop sees ~5x the readout's evidence) -> readout wins are conservative.
 LOOP_PAD_MAX = 2048
 
@@ -1046,7 +1046,7 @@ def run_bench(size="0.6B", device=None, max_train=None, max_val=None,
         loop_val = max_val
     # The loop arm gets its OWN truncation budget, independent of the readout's
     # PAD_MAX: at 384 left-truncation eats the prepended few-shot exemplars on
-    # long rows, so k=8 collapses to zero-shot (Ext 9b caveat). A larger
+    # long rows, so k=8 collapses to zero-shot (truncation caveat). A larger
     # loop_pad_max is pro-baseline bias (the loop sees MORE evidence than the
     # readout) -- conservative for the headline.
     loop_pad_max = loop_pad_max or LOOP_PAD_MAX

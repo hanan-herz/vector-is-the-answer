@@ -5,22 +5,22 @@ The headline experiment: a **one-pass readout of the frozen final residual**
 autoregressive loop** (full context, balanced few-shot, scored by next-token
 log-prob over a closed answer set — Yes/No or A–D — a real classifier read, not
 greedy decode) on public closed-form tasks. Primary: **BoolQ** (full val).
-Second: **RuleTaker** n2k (Ext 12) for serial-depth strata. Third: **ARC-
-Challenge** full (Ext 13) for **parametric science knowledge** (no passage).
+Second: **RuleTaker** n2k (Ext 11) for serial-depth strata. Third: **ARC-
+Challenge** full (Ext 12) for **parametric science knowledge** (no passage).
 Harness: `bench.py`. Interpretation / pitch: `implications.md`.
 Synthetic mechanism experiments: `RESULTS_SYNTHETIC.md`.
 
 ## Headline table
 
-All four runs are **post-fix, full-val (9427 train / 3270 val)**, loop
-`pad_max=2048`, readout `pad_max=384` — no pre-fix handicaps.
+All four runs are **full-val (9427 train / 3270 val)**, loop
+`pad_max=2048`, readout `pad_max=384`.
 
 | model | scale | last.mlp (one-pass) | loop.zero | loop.8 (few-shot) | readout − loop.8 |
 |---|---|---|---|---|---|
 | **Qwen3-0.6B** | 0.6B | **0.7465** | 0.6287 | 0.6963 | **+0.050** |
 | **Qwen3-4B** | 4B | 0.8551 | 0.8547 | **0.8581** | −0.003 |
-| **Qwen3-8B** (Ext 10) | 8B | **0.8810** | 0.8618 | 0.8810 | **0.000 (tie)** |
-| **DeepSeek-V4-Flash-0731** (Ext 9c) | MoE | **0.8964** | 0.8881 | **0.9052** | −0.009 |
+| **Qwen3-8B** (Ext 9) | 8B | **0.8810** | 0.8618 | 0.8810 | **0.000 (tie)** |
+| **DeepSeek-V4-Flash-0731** (Ext 8) | MoE | **0.8964** | 0.8881 | **0.9052** | −0.009 |
 
 **Takeaway.** Across every scale tested, a one-pass residual readout **matches
 or beats** a fairly-conditioned autoregressive loop on BoolQ — winning by +5pts
@@ -30,7 +30,7 @@ KV-cache**. The loop never cleanly beats the readout at any scale.
 
 ![One-pass readout vs fair loop on BoolQ](boolq_results.png)
 
-*Figure: the four post-fix full-val runs (0.6B / 4B / 8B / DeepSeek-V4).
+*Figure: the four full-val runs (0.6B / 4B / 8B / DeepSeek-V4).
 Regenerate with `python plot_boolq.py` (reads all numbers from
 `results/*.json`).*
 
@@ -41,76 +41,47 @@ head ≈ the full readout ⇒ the signal is *diffuse*, no privileged subspace) a
 **ctx vs last** (mean-pooled full-context < final-token ⇒ the verdict is computed
 into the final state, not read off the passage). Both hold at every scale.
 
-## Ext 8 — BoolQ, Qwen3-0.6B/4B, pre-fix, small n (`bench.py`, local MPS)
+## FLOPs, honestly
 
-First public-benchmark test. One-pass readout = final-token residual, frozen
-model. n_train 2400 / n_val 400, loop on first 240 rows.
+Readout and *scoring*-loop are both a single context forward (FLOP-equal; the
+head is ~0.00008% of one forward). The readout's real lever is against a
+*decoding* loop: measured greedy on the "Answer:" prompt, output never
+self-terminates (0.6B ≥300 tokens; raw DSV4 7/8 hit the 1000-token cap, run
+`ap-xDnS2xG9Rt1AyVdHzvZxdH`). So the readout-vs-scoring-loop comparison alone
+shows no FLOP win — the FLOP win is replacing generation (RESULTS_SYNTHETIC
+Ext 6); the *parametric* win is the readout's: a head instead of a decode loop,
+no new tokens, no KV-cache.
 
-| metric (acc) | 0.6B | 4B |
-|---|---|---|
-| readout last.mlp | **0.731 ± .007** | **0.853 ± .001** |
-| readout last.linear | 0.688 | 0.812 |
-| readout ctx.mlp (mean-pool) | 0.631 | 0.669 |
-| readout mlp.shuffle (null) | 0.546 | 0.554 |
-| readout randproj (linear) | 0.721 | 0.836 |
-| loop.zero | 0.672 | 0.850 |
-| loop.k8 | 0.695 | **0.871** |
+## Ext 8 — DeepSeek-V4-Flash-0731 (`bench.py` on Modal B200/B300)
 
-Budget (readout n=64/256/2400): 0.6B 0.677/0.719/0.731; 4B 0.842/0.836/0.853.
+Frontier MoE (43 layers, 167GB FP8). **n_train 9427 / n_val 3270** (full val),
+`loop_pad_max=2048` — the loop gets its own fair few-shot budget. run_id
+`20260808T141721_f6d7bb`.
 
-**Reading.** At 0.6B the readout **beats** the loop (0.731 vs 0.672/0.695); at
-4B it ties zero-shot (0.853 vs 0.850) and trails 8-shot by <2pts (0.853 vs
-0.871). ⚠️ Pre-fix / small-n (2400/400, handicapped loop) — superseded for
-citation by the post-fix full-val 0.6B/4B runs in the headline table
-(`results_20260808T162558_e83621.json`, `results_20260808T162241_cb93ed.json`),
-which confirm the same direction at full scale.
+| metric (acc) | DeepSeek-V4-Flash |
+|---|---|
+| **last.mlp** | **0.8964 ± .0015** |
+| last.linear / last.linear.max | 0.871 / 0.889 |
+| last.mlp.loop_matched (n=3270) | 0.896 |
+| **loop.zero** | **0.8881** |
+| **loop.k8** (lpm 2048) | **0.9052** |
+| last.mlp.shufl (null) | 0.522 |
+| ctx.linear / ctx.mlp | 0.732 / 0.678 |
+| randproj max / perm / noise | 0.889 / 0.891 / 0.602 |
+| budget 64 / 256 / 9427 | 0.848 / 0.870 / 0.896 |
 
-**FLOPs, honestly.** Readout and *scoring*-loop are both a single context
-forward (FLOP-equal; the head is ~0.00008% of one forward). The readout's real
-lever is against a *decoding* loop: measured greedy on the "Answer:" prompt,
-output never self-terminates (0.6B ≥300 tokens; raw DSV4 7/8 hit the 1000-token
-cap, run `ap-xDnS2xG9Rt1AyVdHzvZxdH`). So Ext 8 alone shows no FLOP win — the
-FLOP win is replacing generation (RESULTS_SYNTHETIC Ext 6); the *parametric* win
-(head instead of a decode loop, no new tokens, no KV-cache) is Ext 8's.
-
-## Ext 9 / 9b / 9c — DeepSeek-V4-Flash-0731 (`bench.py` on Modal B200/B300)
-
-Frontier MoE (43 layers, 167GB FP8). n_train 9427 / n_val 3270. Three runs:
-
-- **Ext 9** (`…063355_9ecba8`, pre-fix, loop_val 400): introduced the
-  matched-rows readout (`last.mlp.loop_matched`) and the randproj `perm`/`noise`
-  dict. Superseded by 9c.
-- **Ext 9b** (`…123144_260862`, post-fix, full-val loop): fix-effect A/B vs its
-  pre-fix twin `…064316_c2a59c`. ⚠️ **`loop.k8` handicapped** (0.884) — its
-  few-shot exemplars were truncated by the shared `PAD_MAX=384`. Do not cite.
-- **Ext 9c** (`…141721_f6d7bb`, post-fix, full-val, `loop_pad_max=2048`):
-  **the numbers to cite.** Gives the loop its own fair few-shot budget.
-
-| metric (acc) | Ext 9 (pre-fix) | Ext 9b (handicap k8) | **Ext 9c (fair k8)** |
-|---|---|---|---|
-| last.mlp | 0.896 ± .001 | 0.8964 ± .0015 | **0.8964 ± .0015** |
-| last.linear / .max | 0.872 / — | 0.871 / 0.889 | 0.871 / 0.889 |
-| last.mlp.shufl (null) | 0.525 | 0.522 | 0.522 |
-| ctx.linear / ctx.mlp | 0.724 / 0.676 | 0.732 / 0.678 | 0.732 / 0.678 |
-| randproj max / perm / noise | .888 / .888 / .602 | .889 / .891 / .602 | .889 / .891 / .602 |
-| last.mlp.loop_matched | 0.914 (n=400) | 0.896 (n=3270) | **0.896 (n=3270)** |
-| loop.zero | 0.910 | 0.8884 | 0.8881 |
-| loop.k8 | 0.915 | 0.8841 *(truncated)* | **0.9052** |
-| budget 64 / 256 / 9427 | .842/.868/.896 | .848/.870/.896 | .848/.870/.896 |
-
-`stratum` (9c): flat across question-/passage-length terciles (0.89–0.90); only
+`stratum`: flat across question-/passage-length terciles (0.89–0.90); only
 the gold label splits (Yes 0.910 / No 0.872).
 
-**Reading (9c).** `last.mlp` 0.896 vs loop.zero 0.888 / loop.k8 0.905: the
+**Reading.** `last.mlp` 0.896 vs loop.zero 0.888 / loop.k8 0.905: the
 one-pass readout **beats the zero-shot loop** and trails the **8-shot loop by
 ~1pt** — reading 384 tokens to the loop's 2048, in one forward pass. randproj
 `perm` ≥ `max` and `noise` ≫ null confirm diffuse signal; ctx < last confirms
-final-token concentration. The fix-effect A/B (9b vs `…064316`) moved only
-`loop.k8` (−2.1pts, exemplars truncated) — everything else stable to ≤.008.
+final-token concentration.
 
-## Ext 10 — Qwen3-8B, post-fix, full scale (`bench.py` on Modal)
+## Ext 9 — Qwen3-8B, full scale (`bench.py` on Modal)
 
-Qwen3-8B (36 layers), post-fix, **n_train 9427 / n_val 3270 / loop_val 3270**
+Qwen3-8B (36 layers), **n_train 9427 / n_val 3270 / loop_val 3270**
 (full val, no subsample), `loop_pad_max=2048`, layer 35. run_id
 `20260808T154125_17f659`.
 
@@ -128,18 +99,17 @@ Qwen3-8B (36 layers), post-fix, **n_train 9427 / n_val 3270 / loop_val 3270**
 
 **Reading.** At 8B the readout **ties the fair few-shot loop exactly** (0.8810 vs
 0.8810) and **beats zero-shot by ~2pts** — reading 384 tokens to the loop's
-2048, one forward pass. Stronger than Ext 9c, where the readout trailed 8-shot
-by ~1pt: at 8B the "loop wins by a hair" caveat does not survive. randproj
+2048, one forward pass. Stronger than Ext 8 (DSV4), where the readout trailed
+8-shot by ~1pt: at 8B the "loop wins by a hair" caveat does not survive. randproj
 `perm` ≥ `max`, `noise` ≫ null, ctx < last all hold. **Scale arc (Qwen3 BoolQ):**
 0.6B beat → 4B trailed → 8B tied — no scale at which the fairly-conditioned loop
 cleanly beats the one-pass readout. Artifact:
 `results_20260808T154125_17f659.json`. *(Predates the head-artifact save, so
 `head_file` is absent; future runs persist trained heads.)*
 
-## Ext 11 — Qwen3-0.6B / 4B, post-fix, full scale (`bench.py` on Modal)
+## Ext 10 — Qwen3-0.6B / 4B, full scale (`bench.py` on Modal)
 
-Completes the Qwen3 scale arc post-fix, replacing Ext 8's pre-fix small-n
-0.6B/4B numbers. Both at **n_train 9427 / n_val 3270 / loop_val 3270** (full
+Completes the Qwen3 scale arc at full scale. Both at **n_train 9427 / n_val 3270 / loop_val 3270** (full
 val), `loop_pad_max=2048`. run_ids `20260808T162558_e83621` (0.6B, layer 27),
 `20260808T162241_cb93ed` (4B, layer 35). **First runs to persist the trained
 heads** (`head_file` present).
@@ -159,13 +129,13 @@ heads** (`head_file` present).
 loop.8, +11.8 over zero-shot) — the small model can't surface the answer
 autoregressively but the latent holds it. At **4B the readout ties the loop**
 (0.8551 vs 0.8581, within noise). Combined with 8B (tie) and DSV4 (~1pt behind),
-the post-fix arc is uniform: **the loop never cleanly beats the one-pass
+the full-val arc is uniform: **the loop never cleanly beats the one-pass
 readout at any scale**, and the readout's edge is largest where the model is
 weakest. randproj `perm` ≈ `max`, `noise` ≫ null, ctx < last all hold at both
 scales. Artifacts: `results_20260808T162558_e83621.json`,
 `results_20260808T162241_cb93ed.json`.
 
-## Ext 12 — RuleTaker n2k, multi-model, with per-depth loop (`bench.py` on Modal)
+## Ext 11 — RuleTaker n2k, multi-model, with per-depth loop (`bench.py` on Modal)
 
 Second public closed-form task (`tasksource/ruletaker`): synthetic closed-world
 rule reasoning with labeled **deduction depth** (0/1/2/3/5 + NatLang). Same
@@ -210,7 +180,7 @@ Controls (all models): `last.mlp.shufl` ~0.48–0.51 (≈chance); `ctx.mlp` ~0.5
 at every scale (+1–3pts). At DSV4, loop.8 is **slightly** ahead (~2pts) —
 parity, not a blowout. Zero-shot loop is weak (especially DSV4 0.59), so
 few-shot is required for a fair loop baseline. Same qualitative story as BoolQ
-(Ext 9c–11): **the loop does not cleanly dominate a residual readout**.
+(Ext 8–10): **the loop does not cleanly dominate a residual readout**.
 
 ### Per-depth loop vs MLP (same rows — `stratum_depth_loop`)
 
@@ -263,7 +233,7 @@ no paired significance tests yet; 8B required L40S (T4 OOM on loop).
 - `/Users/hanan/Projects/llm-as-latent-only/head_to_head_three_tasks.png`
 - `/Users/hanan/Projects/llm-as-latent-only/head_to_head_boolq_ruletaker.png` (same 3-panel figure; legacy name)
 
-## Ext 13 — ARC-Challenge full, multi-model (`bench.py --task arc`)
+## Ext 12 — ARC-Challenge full, multi-model (`bench.py --task arc`)
 
 **Why this task.** BoolQ is passage-conditioned QA; RuleTaker is formal
 composition over **rules in the prompt**. ARC-Challenge (Clark et al. 2018;

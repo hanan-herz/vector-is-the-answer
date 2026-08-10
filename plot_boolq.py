@@ -1,12 +1,12 @@
 """BoolQ headline chart: one-pass readout vs the fair autoregressive loop.
 
-All four runs are post-fix, full-val (9427 train / 3270 val, loop pad_max=2048),
+All four runs are full-val (9427 train / 3270 val, loop pad_max=2048),
 read straight from the versioned artifacts in results/:
 
   Qwen3-0.6B  results_20260808T162558_e83621.json
   Qwen3-4B    results_20260808T162241_cb93ed.json
-  Qwen3-8B    results_20260808T154125_17f659.json  (Ext 10)
-  DeepSeek-V4 results_20260808T141721_f6d7bb.json  (Ext 9c)
+  Qwen3-8B    results_20260808T154125_17f659.json  (Ext 9)
+  DeepSeek-V4 results_20260808T141721_f6d7bb.json  (Ext 8)
 
 Saves boolq_results.png.
 """
@@ -58,7 +58,7 @@ ax.set_xticklabels(names, fontsize=9.5)
 ax.set_ylim(0.5, 1.0)
 ax.set_ylabel("BoolQ validation accuracy")
 ax.set_title("One-pass residual readout vs fair autoregressive loop (BoolQ)\n"
-             "post-fix, full-val (9427 train / 3270 val) · loop pad_max 2048 · single forward pass",
+             "full-val (9427 train / 3270 val) · loop pad_max 2048 · single forward pass",
              fontsize=10)
 ax.legend(fontsize=8.5, loc="lower right")
 

@@ -1,6 +1,6 @@
 """Measure whether a greedy decode from the bench "Answer:" prompt
 self-terminates (hits EOS) or runs to the cap — the number behind
-RESULTS.md Ext 8's "≥300 tokens" claim, now at DeepSeek-V4 scale.
+the "≥300 tokens" claim in RESULTS.md ("FLOPs, honestly"), now at DeepSeek-V4 scale.
 
 Uses the SAME conditioning as bench.py's loop arm (`fmt_example`: a plain
 "Passage: ...\nQuestion: ...\nAnswer:" string, no chat template), greedy
