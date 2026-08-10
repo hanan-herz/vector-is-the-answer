@@ -565,23 +565,23 @@ Completed 2026-08-10 (Ext 15): DSV4 BoolQ/RuleTaker sweeps, the first-ever ARC
 sweeps (all four models), and the two missing Qwen cells (0.6B RuleTaker,
 4B BoolQ). Paired McNemar: best swept tap vs final layer, same rows.
 
-| task | model | best tap (N of M) | depth | plateau onset (≥final−1pt) | mlp (best) | mlp (final) | best−final | paired p |
-|---|---|---|---|---|---|---|---|---|
-| BoolQ | Qwen3-0.6B | L18/27 | 64% | L18/27 (67%) | 0.761 | 0.746 | +0.010 | 0.18 ns |
-| BoolQ | Qwen3-4B | L24/35 | 67% | L24/35 (69%) | 0.868 | 0.856 | +0.011 | **0.038 \*** |
-| BoolQ | Qwen3-8B | L30/35 | 83% | L24/35 (69%) | 0.889 | 0.878 | +0.011 | **0.016 \*** |
-| BoolQ | DeepSeek-V4 | L36/42 | 86% | **L22/42 (52%)** | 0.900 | 0.896 | +0.005 | 0.20 ns |
-| RuleTaker | Qwen3-0.6B | L18/27 | 64% | **L13/27 (48%)** | 0.688 | 0.650 | +0.036 | **0.020 \*** |
-| RuleTaker | Qwen3-4B | L24/35 | 67% | L24/35 (69%) | 0.781 | 0.744 | +0.038 | **2.8e-03 \*\*** |
-| RuleTaker | Qwen3-8B | L24/35 | 67% | L24/35 (69%) | 0.778 | 0.758 | +0.025 | **0.040 \*** |
-| RuleTaker | DeepSeek-V4 | L29/42 | 67% | **L22/42 (52%)** | 0.776 | 0.765 | +0.021 | 0.057 ns |
-| ARC | Qwen3-0.6B | L26/27 | 93% | L26/27 (96%) | 0.500 | 0.492 | +0.013 | 0.082 ns |
-| ARC | Qwen3-4B | L29/35 | 81% | L24/35 (69%) | 0.856 | 0.841 | +0.022 | **2.2e-04 \*\*\*** |
-| ARC | Qwen3-8B | L35/35 | 97% | L24/35 (69%) | 0.909 | 0.909 | +0.001 | 1.00 ns |
-| ARC | DeepSeek-V4 | L42/42 | 98% | **L22/42 (52%)** | 0.951 | 0.951 | −0.005 | 0.29 ns |
+| task | model | layers | best tap | depth | plateau onset (≥final−1pt) | mlp (best) | mlp (final) | best−final | paired p |
+|---|---|---|---|---|---|---|---|---|---|
+| BoolQ | Qwen3-0.6B | 28 | L18 | 64% | L18 (67%) | 0.761 | 0.746 | +0.010 | 0.18 ns |
+| BoolQ | Qwen3-4B | 36 | L24 | 67% | L24 (69%) | 0.868 | 0.856 | +0.011 | **0.038 \*** |
+| BoolQ | Qwen3-8B | 36 | L30 | 83% | L24 (69%) | 0.889 | 0.878 | +0.011 | **0.016 \*** |
+| BoolQ | DeepSeek-V4 | 43 | L36 | 86% | **L22 (52%)** | 0.900 | 0.896 | +0.005 | 0.20 ns |
+| RuleTaker | Qwen3-0.6B | 28 | L18 | 64% | **L13 (48%)** | 0.688 | 0.650 | +0.036 | **0.020 \*** |
+| RuleTaker | Qwen3-4B | 36 | L24 | 67% | L24 (69%) | 0.781 | 0.744 | +0.038 | **2.8e-03 \*\*** |
+| RuleTaker | Qwen3-8B | 36 | L24 | 67% | L24 (69%) | 0.778 | 0.758 | +0.025 | **0.040 \*** |
+| RuleTaker | DeepSeek-V4 | 43 | L29 | 67% | **L22 (52%)** | 0.776 | 0.765 | +0.021 | 0.057 ns |
+| ARC | Qwen3-0.6B | 28 | L26 | 93% | L26 (96%) | 0.500 | 0.492 | +0.013 | 0.082 ns |
+| ARC | Qwen3-4B | 36 | L29 | 81% | L24 (69%) | 0.856 | 0.841 | +0.022 | **2.2e-04 \*\*\*** |
+| ARC | Qwen3-8B | 36 | L35 | 97% | L24 (69%) | 0.909 | 0.909 | +0.001 | 1.00 ns |
+| ARC | DeepSeek-V4 | 43 | L42 | 98% | **L22 (52%)** | 0.951 | 0.951 | −0.005 | 0.29 ns |
 
-("N of M": tapped layer index of the final layer's index — 28/36/36/43-layer
-stacks. **Plateau onset** = first swept layer within 1pt of the final-layer
+(**Layers** = stack depth (28/36/36/43); taps are residual-layer indices.
+**Plateau onset** = first swept layer within 1pt of the final-layer
 readout; the verdict representation is fully assembled from there on. Note
 DSV4 reaches final-layer quality by **L22/42 — 52% depth — on all three
 tasks**, and ARC shows the sharpest "snap-in" (near-chance at L15 → 0.944 at

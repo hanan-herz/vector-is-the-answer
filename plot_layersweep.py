@@ -103,10 +103,9 @@ for row, task in enumerate(TASKS):
             txt = f"best swept L{L[best_i]} = {mlp[best_i]:.3f}"
         if onset is not None and onset < last_layer:
             txt += f"\nplateau from L{onset}/{last_layer} ({onset / last_layer * 100:.0f}%)"
-        frac_x, ha = (0.45, "left") if best_i < len(L) / 2 else (0.55, "right")
         ax.annotate(txt, xy=(L[best_i], mlp[best_i]),
-                    xytext=(frac_x, 0.25), textcoords="axes fraction",
-                    ha=ha, fontsize=8, color="black",
+                    xytext=(0.97, 0.03), textcoords="axes fraction",
+                    ha="right", va="bottom", fontsize=8, color="black",
                     bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="0.6", alpha=0.92),
                     arrowprops=dict(arrowstyle="->", color="black", lw=0.7))
 
