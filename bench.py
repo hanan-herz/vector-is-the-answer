@@ -531,9 +531,11 @@ def save_heads(heads_dir, layer, artifacts):
 
 # ---------------------------------------------------------------- readouts --
 def to_vecs(model, tok, texts, layer, batch=24, label=""):
-    """Final-layer hidden vectors (last-real-token and mean-pooled full context)
-    of each passage+question. Captured via a forward hook on ONLY the target
-    layer (matched.py pattern) -> holds one layer, not all 37; 4B-safe.
+    """Hidden vectors (last-real-token and mean-pooled full context) of each
+    passage+question, captured via a forward hook on ONE target layer
+    (matched.py pattern). For multi-layer capture use ``to_vecs_multi`` (one
+    forward, all layers) — it is numerically identical and ~N× cheaper; this
+    single-layer helper remains for the main path and small one-off taps.
     Returns (X_last, X_mean) as float numpy [n, d_model]."""
     dev = model.device
     last_out, mean_out = [], []
@@ -573,6 +575,97 @@ def to_vecs(model, tok, texts, layer, batch=24, label=""):
             tag = "to_vecs" if not label else label
             log(f"  [{tag}] {min(done + batch, total)}/{total} batches")
     return torch.cat(last_out, 0).numpy(), torch.cat(mean_out, 0).numpy()
+
+
+def to_vecs_multi(model, tok, texts, layers, batch=24, label=""):
+    """Fused multi-layer capture: hook ALL of ``layers`` and run ONE forward
+    per batch, returning per-layer (X_last, X_mean) pairs identical to what
+    ``to_vecs`` would produce per layer. Hooks are passive observers and each
+    fires on the same unmodified forward, so per-layer numerics match the
+    single-layer path bit-for-bit; only the GPU cost changes (N forwards ->
+    1). The trunk is NOT trimmed — see the TODO(paper-2, truncation-
+    equivalence) above the driver loop.
+
+    Memory: the per-batch full-sequence buffer for each layer is offloaded to
+    CPU inside the hook (same as ``to_vecs``), so transient GPU footprint is
+    one layer's activation regardless of len(layers); CPU holds the per-batch
+    reductions, which are tiny ([n, d_model] per layer)."""
+    dev = model.device
+    layers = sorted(set(int(l) for l in layers))
+    cut = max(layers)
+    total = len(texts)
+    # Per-layer accumulators of per-row vectors.
+    last_out = {l: [] for l in layers}
+    mean_out = {l: [] for l in layers}
+
+    def forward_batch(sub):
+        enc = tok(sub, return_tensors="pt", padding=True, truncation=True,
+                  max_length=PAD_MAX).to(dev)
+        bufs = {l: [] for l in layers}
+
+        def mk_hook(l):
+            def hook(m, i, o):
+                if isinstance(o, tuple):
+                    o = o[0]
+                # Same flatten as to_vecs: DSV4 (B,S,G,d) / Qwen (B,S,d) ->
+                # (B,S,-1); offload to CPU immediately so GPU holds one layer.
+                bufs[l].append(o.flatten(2).detach().float().cpu())
+            return hook
+
+        handles = [model.model.layers[l].register_forward_hook(mk_hook(l))
+                   for l in layers]
+        try:
+            with torch.no_grad():
+                model(**enc)
+        finally:
+            for h in handles:
+                h.remove()
+
+        am = enc["attention_mask"].cpu()
+        lens = am.long().sum(1) - 1
+        arange_cache = {}
+        for l in layers:
+            hs = bufs[l][0]
+            b = hs.size(0)
+            arange = arange_cache.setdefault(b, torch.arange(b))
+            last_out[l].append(hs[arange, lens])
+            mean_out[l].append((hs * am.float().unsqueeze(-1)).sum(1)
+                               / am.float().sum(1).unsqueeze(-1))
+
+    # TODO(paper-2, truncation-equivalence): we still run the FULL model
+    # forward here and merely read the intermediate residuals via hooks. The
+    # whole point of the early-tap result (Ext 14/14b) is that the verdict
+    # head lives at ~2/3 depth, so a serving path could TRUNCATE the trunk at
+    # `cut` (= max captured layer) and skip layers > cut entirely. That is
+    # numerically safe for every captured layer because a causal
+    # transformer's layer-l output depends only on layers <= l, and all
+    # captured layers satisfy l <= cut. At 4B (cut=L24 of 36) this is ~30%
+    # fewer layers computed per call.
+    #
+    # Deliberately NOT implemented yet:
+    #   * We want the fused caches to stay bit-identical to the full-forward
+    #     captures that produced the published Ext 14/14b numbers, so the
+    #     truncation must land behind a flag and be validated, not assumed.
+    #   * The validation experiment is exactly this: run to_vecs_multi twice
+    #     on the same texts, once full-forward and once with the trunk sliced
+    #     at `cut`, and assert per-layer outputs match (bit-for-bit on MPS;
+    #     within fp tolerance on CUDA/DSV4). That is the "untried serving
+    #     path" caveat in paper/implciation-early-layer.md §3 made concrete.
+    #   * Implementation sketch: slice the trunk for the forward only, e.g.
+    #     run `model.model` with `layers[:cut+1]`, or monkeypatch
+    #     `model.model.layers` to `layers[:cut+1]` around the `model(**enc)`
+    #     call and restore in `finally`. The hooks already fire on the right
+    #     sublayers; only the tail compute is dropped. Care: DSV4/FP8 paths
+    #     and any final-norm/lm_head usage must be bypassed for readout-only
+    #     forwards (we never call lm_head here, so this is fine).
+    for i, done in enumerate(range(0, total, batch)):
+        forward_batch(texts[done:done + batch])
+        if (i + 1) % 20 == 0 or done + batch >= total:
+            tag = "to_vecs_multi" if not label else label
+            log(f"  [{tag}] {min(done + batch, total)}/{total} batches "
+                f"({len(layers)} layers/fwd)")
+    return {l: (torch.cat(last_out[l], 0).numpy(),
+                torch.cat(mean_out[l], 0).numpy()) for l in layers}
 
 
 def _randproj_acc(Xtr, ytr, Xva, yva, d, s):
@@ -1188,24 +1281,41 @@ def run_bench(size="0.6B", device=None, max_train=None, max_val=None,
         # CPU-only off artifacts (rowpreds_stats.py --pairs). y_true is the
         # full val — the same rows as the loop rowpreds npz.
         sweep_rowpreds = {"y_true": np.asarray(yva, dtype=int)}
+
+        # One fused forward per split captures every missing layer at once
+        # (to_vecs_multi), writing the SAME per-layer vec cache files the
+        # single-layer path uses, so the loop below runs entirely from cache
+        # and a rerun sweeping a subset hits the layers already on disk. This
+        # turns the sweep's N forward passes per split into ~1.
+        missing = [l for l in sweep_layers
+                   if load_cached_vectors(
+                       max_train, max_val,
+                       ["last_tr", "ctx_tr", "last_va", "ctx_va", "ytr", "yva"],
+                       cache_dir=cache_dir, layer=l) is None]
+        if missing:
+            log(f"[sweep] fused capture of {len(missing)} uncached layer(s) "
+                f"{missing} in ONE forward per split")
+            tr_vecs = to_vecs_multi(model, tok, texts_tr, missing, batch,
+                                    label="sweep-train")
+            va_vecs = to_vecs_multi(model, tok, texts_va, missing, batch,
+                                    label="sweep-val")
+            for l in missing:
+                cache_vectors(max_train, max_val,
+                              last_tr=tr_vecs[l][0], ctx_tr=tr_vecs[l][1],
+                              last_va=va_vecs[l][0], ctx_va=va_vecs[l][1],
+                              ytr=ytr, yva=yva,
+                              cache_dir=cache_dir, layer=l)
+
         for l in sweep_layers:
             _vc = load_cached_vectors(
                 max_train, max_val,
                 ["last_tr", "ctx_tr", "last_va", "ctx_va", "ytr", "yva"],
                 cache_dir=cache_dir, layer=l)
-            if _vc is not None:
-                _ltr, _lva = _vc["last_tr"], _vc["last_va"]
-                log(f"[sweep] L{l} vectors from cache")
-            else:
-                _ltr, _ctr = to_vecs(model, tok, texts_tr, l, batch,
-                                     label=f"train@L{l}")
-                _lva, _cva = to_vecs(model, tok, texts_va, l, batch,
-                                     label=f"val@L{l}")
-                cache_vectors(max_train, max_val,
-                              last_tr=_ltr, ctx_tr=_ctr,
-                              last_va=_lva, ctx_va=_cva,
-                              ytr=ytr, yva=yva,
-                              cache_dir=cache_dir, layer=l)
+            if _vc is None:  # pragma: no cover - guarded by fused fill above
+                raise RuntimeError(
+                    f"[sweep] L{l} vectors missing after fused capture")
+            _ltr, _lva = _vc["last_tr"], _vc["last_va"]
+            log(f"[sweep] L{l} vectors from cache")
             _r, _artifacts = readout_report(
                 _ltr, ytr, _lva, yva, "last", rng, device=probe_dev,
                 return_artifacts=True, n_classes=n_classes)
