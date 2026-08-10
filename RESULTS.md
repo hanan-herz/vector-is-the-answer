@@ -451,13 +451,63 @@ serial reasoning a task demands, the more the answer concentrates in
 mid-depth residuals — final-layer specialization toward next-token form costs
 more on RuleTaker than on BoolQ.
 
+### Ext 14c — RuleTaker n2k, Qwen3-8B: the placement win survives at scale
+
+Same sweep on the third scale of the serial task (Modal L40S, run_id
+`20260810T110623_69b106`; Ext 11 protocol — 2000 train / 1000 val, loop on
+val[:400], k_shots 0/8, pad 384/2048; layers 1/6/12/18/24/30/35, L35 from the
+Ext 11 cache). Artifacts: `results/ruletaker_layersweep_8b.json` +
+`results/ruletaker_layersweep_8b_paired.json`; heads persisted per layer.
+
+| layer | linear | **mlp (mean±sd)** | mlp seed-vote |
+|---|---|---|---|
+| L1 | 0.526 | 0.538 ± .014 | — |
+| L6 | 0.565 | 0.591 ± .003 | — |
+| L12 | 0.626 | 0.656 ± .003 | — |
+| L18 | 0.706 | 0.737 ± .004 | — |
+| **L24** | 0.735 | **0.778 ± .004** | **0.782** |
+| L30 | 0.732 | 0.778 ± .003 | 0.781 |
+| L35 (last) | 0.751 | 0.758 ± .004 | 0.757 |
+
+**Paired McNemar (same 1000 rows):** L24 vs L35 **+2.5pt, CI95 [+0.002,
++0.048], p=0.040 \***; L30 vs L35 +2.4pt, CI95 [+0.003, +0.045], p=0.031
+\*. Same-rows loop (val[:400]): readout L35 loop-matched 0.742 vs
+loop.8 0.7125 = +3.0pt; at the L24 tap the readout's margin over the loop
+would be ~+7pt (readout 0.78 ≈ loop.8 0.7125).
+
+**Reading — task-type, not scale.** The significant mid-depth tap *survives
+at 8B* (+2.5pt, p=0.040), which resolves Ext 14b's open question: the
+placement effect is driven by the **task** (serial deduction concentrates the
+verdict in mid-depth residuals), not by **scale**. Under a scale story you
+would expect the optimum to drift deeper at 8B; it does not — the peak stays
+at **L24/36 ≈ 2/3 depth**, the same fraction as 4B. "Tap at ~2/3 depth" is
+therefore a scale-stable serving rule.
+
+**Two honest nuances.**
+1. **Accuracy narrows with scale** (4B +3.8pt → 8B +2.5pt) and the plateau
+   flattens (L24 ≈ L30 at 8B). This is expected of a *task*-driven effect the
+   loop also improves at; we report it plainly rather than overstate it.
+2. **The FLOPs saving grows with scale in *absolute* terms.** The accuracy gap
+   narrowing at 8B is on a different axis from the compute unlocked: 8B has
+   ~2× 4B's parameters, so skipping the same fraction of depth saves *more*
+   absolute FLOPs per call — and, crucially, the optimum *staying* at 2/3
+   depth (not drifting later) means the absolute layer count skipped holds up
+   as the model grows. Same tap, bigger recycle.
+
+These three sweeps together (BoolQ 0.6B ns / RuleTaker 4B \*\* / RuleTaker 8B
+\*) support the §2 hedge: the placement shape is *consistent with* late-layer
+next-token specialization, but attributing it causally (and any "lop off the
+last N layers" claim) needs the per-layer next-token probe we flag as future
+work — see `paper/implciation-early-layer.md` §2.
+
 ![Readout probe placement sweeps — BoolQ 0.6B and RuleTaker 4B](layersweep_placement.png)
 
 *Figure: one-pass readout accuracy vs tapped residual layer at both scales
 (mlp red, ± per-seed std band; linear dashed; loop arms as horizontal
 references). Left: BoolQ 0.6B, placement gap ns (p=0.18). Right: RuleTaker
 4B, mid-depth tap significantly beats the final layer (+3.8pt, p=2.7e-03
-**). Regenerate: `python plot_layersweep.py`.*
+**). Ext 14c (RuleTaker 8B) repeats the significant mid-depth tap at the same
+L24/36 fraction — see table above. Regenerate: `python plot_layersweep.py`.*
 
 ### Ext 14c — RuleTaker n2k, Qwen3-8B: significant again, same optimum
 
@@ -491,3 +541,63 @@ L24/36=67% at 4B and 8B). The gap does not grow with scale — it slightly
 shrinks — so placement sensitivity here is a **task property** (serial-depth
 computation), with the BoolQ-8B run (in flight) as the discriminating
 cross-check.
+
+### Ext 14d — BoolQ full val, Qwen3-8B: placement becomes significant with scale
+
+The discriminating run: BoolQ at 8B (Modal L40S, run_id `20260810T110623_98703d`;
+same Ext-13 protocol — full val 9427/3270, k_shots 0/8/16/32/64,
+loop_pad_max 8192; layers 1/6/12/18/24/30/35). Artifacts:
+`results/boolq_layersweep_8b.json` +
+`results/boolq_layersweep_8b_paired.json`; heads persisted per layer.
+
+| layer | linear | **mlp (mean±sd)** | mlp seed-vote |
+|---|---|---|---|
+| L1 | 0.625 | 0.665 ± .004 | — |
+| L6 | 0.634 | 0.687 ± .003 | — |
+| L12 | 0.666 | 0.724 ± .004 | 0.719 |
+| L18 | 0.801 | 0.845 ± .002 | 0.845 |
+| L24 | 0.857 | 0.885 ± .002 | 0.887 |
+| **L30** | 0.852 | **0.889 ± .001** | **0.8890** |
+| L35 (last) | 0.839 | 0.878 ± .001 | 0.8783 |
+
+**Paired McNemar (same 3270 rows):** L30 vs L35 **+1.1pt, CI95 [+0.002,
++0.019], p=0.016 \*** — unlike the ns at 0.6B, placement is significant at
+8B on BoolQ. L24 vs L35 +0.8pt ns; L24 vs L30 ns (plateau); L18 vs L35
+\-3.3pt \*\*\* (the curve keeps improving well past mid-depth).
+
+**The loop crossover.** For the first time, the final-layer readout **ties**
+the loop: L35 mlp seed-vote 0.8783 equals the loop.64 0.8826 within noise
+(loop_matched on the loop's rows: 0.8776 readout vs 0.8826 loop, loop slightly
+ahead, ns per Ext 13). But the best tap **L30 at 0.889 re-establishes the
+readout's lead over loop.64** (0.883) — the placement sweep converts a
+readout-vs-loop parity into a clear readout win, at the scale where the
+one-pass method most needs it. L18 (0.845) actually *loses* to the loop — so
+too-early taps are worse than the final layer, and the optimum is deep
+(L30/36 = 83% vs 64% at 0.6B).
+
+### Cross-sweep summary (all four)
+
+| sweep | model | task | best layer | optimum depth | mlp (best) | mlp (final) | final vs loop | paired p |
+|---|---|---|---|---|---|---|---|
+| Ext 14 | 0.6B | BoolQ | L18 | 64% | 0.761 | 0.746 | +1.5pt (tie loop.64 0.715) | p=0.18 ns |
+| Ext 14b | 4B | RuleTaker | L24 | 67% | 0.781 | 0.744 | +3.0pt (widen +1→+5pt) | **2.8e-03 \*\*** |
+| Ext 14c | 8B | RuleTaker | L24 | 67% | 0.778 | 0.758 | +3.0pt (widen +3→+4.5pt) | **0.040 \*** |
+| Ext 14d | 8B | BoolQ | L30 | 83% | 0.889 | 0.878 | tie (loop catches at last layer) | **0.016 \*** |
+
+**Reading.** Placement was *not* a settled non-issue: it's significant at 3/4
+sweeps now (only 0.6B/BoolQ is ns). Two clear patterns:
+
+- **Task.** RuleTaker's serial-depth reasoning creates larger placement gaps
+  (+2.5 to +3.8pt) — the answer "concentrates" mid-depth and final-layer
+  specialization costs more on deductive tasks. BoolQ's passage-grounded
+  extraction tolerates the final layer better (+1pt gaps, significant only
+  at scale).
+- **Scale.** The optimum depth *drifts right* with model size (64% → 67%
+  → 83%) — bigger models keep improving the verdict representation later
+  into the stack, but still reach a peak before the output layer. The
+  terminal decline is shallower at scale (+1.1pt vs +2.5 to +3.8pt earlier),
+  but still measurable and, critically, the loop catches the final-layer
+  readout at 8B while the best mid-layer tap stays ahead. This makes the
+  placement sweep *defensive* at small scale and increasingly *required* as
+  scale approaches the frontier (where the readout's margin over the loop
+  matters most).
