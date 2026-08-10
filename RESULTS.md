@@ -372,6 +372,9 @@ promote with FileNotFoundError (hit on the 4B/8B clients). `run_bench` now
 commits the volume before returning, and the client retries fetch+promote
 6× with 5s backoff.
 
-![ARC-Challenge full: readout vs fair loop](arc_results.png)
+![BoolQ budget-matched k-curve vs one-pass readout](boolq_budget_kcurve.png)
 
-*Plot path:* `/Users/hanan/Projects/llm-as-latent-only/arc_results.png`
+*Figure: loop accuracy as a function of balanced exemplars k (0/8/16/32/64,
+`loop_pad_max=8192`; solid blue) vs the one-pass readout (red: 4-seed vote,
+dashed band = per-seed mean ± std). Annotated with paired McNemar of readout
+vs the best loop arm at each scale. Regenerate: `python plot_boolq_budget.py`.*
