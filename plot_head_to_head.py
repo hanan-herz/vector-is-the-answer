@@ -1,20 +1,23 @@
 """Head-to-head: BoolQ (full-val) · RuleTaker (n2k) · ARC-Challenge (full).
 
-Same four models, same three bars:
-  last.mlp · loop.zero · loop.8
+Same six models, same three bars:
+  readout (last.mlp, per-seed mean) · loop.zero · best loop
+
+All numbers read from the canonical artifacts (single source of truth, same
+as scripts/build_table1.py) — readout.mean, loop.zero, and the best loop arm
+(best k for the BoolQ sweep, k=8 elsewhere).
 
 Protocols differ by design —
-  BoolQ:      train 9427 / val 3270 / loop_val 3270
-  RuleTaker:  train 2000 / val 1000 / loop_val 400  (n2k pilot)
-  ARC:        train 1117 / test 1165 / loop_val 1165 (full Challenge, 4-way)
+  BoolQ:      train 9427 / val 3270 / loop 3270
+  RuleTaker:  train 2000 / val 1000 / loop 1000  (n2k pilot)
+  ARC:        train 1117 / test 1165 / loop 1165 (full Challenge, 4-way)
 
 Saves:
   head_to_head_three_tasks.png
   head_to_head_boolq_ruletaker.png  (same figure; legacy name)
-
-Full paths printed on write.
 """
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -23,28 +26,30 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+from scripts.build_table1 import CELLS, RES, mean_of
+
 ROOT = Path(__file__).resolve().parent
 
-BOOLQ = [  # ascending scale, then frontier MoE
-    ("Qwen3-0.6B", "results/results_20260808T162558_e83621.json"),
-    ("Qwen3-4B", "results/results_20260808T162241_cb93ed.json"),
-    ("Qwen3-8B", "results/results_20260808T154125_17f659.json"),
-    ("DeepSeek-V4", "results/results_20260808T141721_f6d7bb.json"),
-]
+# canonical cells grouped by task, each (model, readout, loop.zero, best loop)
+def _by_task(task):
+    out = []
+    for t, model, fname, loop_fname in CELLS:
+        if t != task:
+            continue
+        d = json.load(open(os.path.join(RES, fname)))
+        readout = mean_of(d)
+        loop_src = json.load(open(os.path.join(RES, loop_fname))) if loop_fname else d
+        loops = {k: v for k, v in loop_src.items()
+                 if k.startswith("loop.") and isinstance(v, (int, float))}
+        best_arm = max(loops, key=lambda k: loops[k])
+        out.append((model.replace("-Flash", ""), readout,
+                    loops.get("loop.zero"), loops[best_arm]))
+    return out
 
-RULETAKER = [
-    ("Qwen3-0.6B", "results/ruletaker_qwen06b_n2k.json"),
-    ("Qwen3-4B", "results/ruletaker_qwen4b_n2k.json"),
-    ("Qwen3-8B", "results/ruletaker_qwen8b_n2k.json"),
-    ("DeepSeek-V4", "results/ruletaker_dsv4_n2k.json"),
-]
 
-ARC = [
-    ("Qwen3-0.6B", "results/arc_qwen06b.json"),
-    ("Qwen3-4B", "results/arc_qwen4b.json"),
-    ("Qwen3-8B", "results/arc_qwen8b.json"),
-    ("DeepSeek-V4", "results/arc_dsv4.json"),
-]
+BOOLQ = _by_task("BoolQ")
+RULETAKER = _by_task("RuleTaker")
+ARC = _by_task("ARC")
 
 COLORS = {
     "mlp": "#2c7fb8",
@@ -53,31 +58,12 @@ COLORS = {
 }
 
 
-def _acc(x):
-    return float(x[0]) if isinstance(x, (list, tuple)) else float(x)
-
-
-def load_triplet(path: Path):
-    r = json.loads(path.read_text())
-    return (
-        _acc(r["last.mlp"]),
-        float(r["loop.zero"]),
-        float(r["loop.8"]),
-        _acc(r["last.mlp.loop_matched"]) if "last.mlp.loop_matched" in r else None,
-    )
-
-
-def panel(ax, artifacts, *, title, ylabel, base_rate=None, note=None,
+def panel(ax, rows, *, title, ylabel, base_rate=None, note=None,
           ylim=(0.5, 1.0), show_legend=True):
-    names, mlp_v, zero_v, k8_v, matched_v = [], [], [], [], []
-    for name, rel in artifacts:
-        path = ROOT / rel
-        m, z, k, matched = load_triplet(path)
-        names.append(name)
-        mlp_v.append(m)
-        zero_v.append(z)
-        k8_v.append(k)
-        matched_v.append(matched)
+    names = [r[0] for r in rows]
+    mlp_v = [r[1] for r in rows]
+    zero_v = [r[2] for r in rows]
+    best_v = [r[3] for r in rows]
 
     x = np.arange(len(names))
     w = 0.26
@@ -93,23 +79,9 @@ def panel(ax, artifacts, *, title, ylabel, base_rate=None, note=None,
                 ha="center", va="bottom", fontsize=6.5, color="#222",
             )
 
-    bar(-w, mlp_v, "last.mlp (one-pass)", COLORS["mlp"])
+    bar(-w, mlp_v, "readout (one-pass)", COLORS["mlp"])
     bar(0.0, zero_v, "loop.zero", COLORS["zero"])
-    bar(+w, k8_v, "loop.8 (fair few-shot)", COLORS["k8"])
-
-    # Matched readout marker when available (same n as loop).
-    if any(v is not None for v in matched_v):
-        for xi, mv in enumerate(matched_v):
-            if mv is None:
-                continue
-            ax.plot(
-                xi - w, mv, marker="D", color="#08306b", markersize=4.5,
-                zorder=5, linestyle="none",
-            )
-        ax.plot(
-            [], [], marker="D", color="#08306b", markersize=4.5,
-            linestyle="none", label="last.mlp.loop_matched",
-        )
+    bar(+w, best_v, "best loop (few-shot)", COLORS["k8"])
 
     if base_rate is not None:
         ax.axhline(base_rate, color="k", ls="--", lw=0.8)
@@ -120,13 +92,13 @@ def panel(ax, artifacts, *, title, ylabel, base_rate=None, note=None,
         )
 
     ax.set_xticks(x)
-    ax.set_xticklabels(names, fontsize=8)
+    ax.set_xticklabels(names, fontsize=7, rotation=18, ha="right")
     ax.set_ylim(*ylim)
     ax.set_ylabel(ylabel, fontsize=9)
     ax.set_title(title, fontsize=9.5)
     if note:
         ax.text(
-            0.5, -0.16, note, transform=ax.transAxes,
+            0.5, -0.26, note, transform=ax.transAxes,
             ha="center", va="top", fontsize=7, color="#444",
         )
     if show_legend:
@@ -153,7 +125,7 @@ def main():
         title="RuleTaker — n2k pilot",
         ylabel="Accuracy",
         base_rate=0.50,
-        note="train 2000 · val 1000 · loop 400 · in-context rules",
+        note="train 2000 · val 1000 · loop 1000 · in-context rules",
         ylim=(0.50, 0.90),
         show_legend=False,
     )

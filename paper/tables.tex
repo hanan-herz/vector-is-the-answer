@@ -1,51 +1,66 @@
 % Canonical tables, shared by main_tables.tex (standalone) and paper.tex.
 % All numbers: post-fix canonicals, batch 8, model-pinned GPUs (2026-08-10/11).
-% Requires: booktabs, multirow, caption, and \sd \pstar \pstarstar \pstarstarstar.
+% Requires: booktabs, multirow, caption, graphicx (\resizebox), and
+% \sd \pstar \pstarstar \pstarstarstar.
+% Shrink-only fit: never upscale a narrow table to \textwidth (that made
+% Table~4 look oversized).
+\newcommand{\fittable}[1]{%
+  \sbox0{#1}%
+  \ifdim\wd0>\textwidth
+    \resizebox{\textwidth}{!}{\usebox0}%
+  \else
+    \usebox0
+  \fi
+}
 
 \begin{table*}[t]
 \centering
-\caption{\textbf{One-pass residual readout vs.\ fairly-conditioned autoregressive
-loop} (accuracy). Readout = small MLP on the frozen final residual (4-seed vote);
-loop = next-token log-prob over the closed answer set, full context, balanced
-few-shot. $\Delta$ = readout $-$ loop.k, paired McNemar on identical rows
-($^{\ast}p<0.05$, $^{\ast\ast}p<0.01$, $^{\ast\ast\ast}p<0.001$). All runs
-batch~8; Qwen3 0.6B/4B on H200, Qwen3-8B/Mistral-7B/Granite-3.1-8B on B200,
-DeepSeek-V4-Flash on B300.
-\textsuperscript{a}~BoolQ loops: Qwen at pad 8192 with best $k\in\{0,\dots,64\}$,
-Mistral/Granite/DSV4 at pad 2048, $k{=}8$.
-\textsuperscript{b}~RuleTaker n2k: readout scored on the loop's exact 400 rows.
-\textsuperscript{c}~ARC-Challenge: full test (1165 rows), $k{=}8$, pad 2048.}
+\caption{\textbf{One-pass residual readout vs.\ fair AR loop} (accuracy).
+Readout: MLP on frozen final residual (per-seed mean). Loop: closed-set
+next-token log-prob, full context, balanced few-shot. loop.0 / loop.8 =
+zero- / 8-shot; \emph{best loop} = stronger arm ($k$ in parentheses; RT 0.6B
+and ARC DSV4 prefer zero-shot). $\Delta=$ readout $-$ best loop on identical
+rows ($\Delta{>}0$ = readout wins; best-of makes $\Delta$ conservative).
+Paired McNemar ($^{\ast}p{<}0.05$, $^{\ast\ast}p{<}0.01$,
+$^{\ast\ast\ast}p{<}0.001$).
+\textsuperscript{a}BoolQ val 3270; Qwen $k{\le}64$ pad 8192, else $k{=}8$
+pad 2048.
+\textsuperscript{b}RuleTaker n2k val 1000.
+\textsuperscript{c}ARC-Challenge test 1165, $k{=}8$.}
 \label{tab:main}
 \small
-\begin{tabular}{@{}llccccc@{}}
+\setlength{\tabcolsep}{3.5pt}%
+\fittable{%
+\begin{tabular}{@{}llcccccc@{}}
 \toprule
-Task & Model & Readout & loop.0 & loop.k & $\Delta$ & $p$ (McNemar) \\
+Task & Model & Readout & loop.0 & loop.8 & best loop & $\Delta$ (readout $-$ loop) & $p$ (McNemar) \\
 \midrule
 \multirow{6}{*}{BoolQ\textsuperscript{a}}
- & Qwen3-0.6B & \textbf{0.753} & 0.631 & 0.715 & \sd{+0.038}\pstarstarstar & $2.4\mathrm{e}{-05}$ \\
- & Qwen3-4B   & 0.862 & 0.854 & \textbf{0.869} & $-0.007$ & 0.22 \\
- & Qwen3-8B   & 0.879 & 0.862 & \textbf{0.886} & $-0.007$ & 0.24 \\
- & Mistral-7B & 0.841 & 0.798 & \textbf{0.852} & $-0.011$ & 0.21 \\
- & Granite-3.1-8B & 0.854 & 0.815 & \textbf{0.864} & $-0.010$ & 0.64 \\
- & DeepSeek-V4-Flash & 0.896 & 0.888 & \textbf{0.906} & $-0.009$ & 0.39 \\
+ & Qwen3-0.6B & \textbf{0.746} & 0.631 & 0.645 & 0.715\,(32) & \sd{+0.030}\pstarstarstar & $3.2\mathrm{e}{-05}$ \\
+ & Qwen3-4B   & 0.856 & 0.855 & 0.865 & \textbf{0.867}\,(64) & $-0.012$ & 0.094 \\
+ & Qwen3-8B   & 0.878 & 0.862 & 0.876 & \textbf{0.886}\,(16) & $-0.008$ & 0.243 \\
+ & Mistral-7B & 0.841 & 0.824 & 0.863 & \textbf{0.863}\,(8) & \sd{$-0.022$}\pstarstar & 0.003 \\
+ & Granite-3.1-8B & 0.854 & 0.800 & 0.865 & \textbf{0.865}\,(8) & $-0.011$ & 0.076 \\
+ & DeepSeek-V4-Flash & 0.896 & 0.888 & 0.906 & \textbf{0.906}\,(8) & $-0.009$ & 0.078 \\
 \midrule
 \multirow{6}{*}{RuleTaker n2k\textsuperscript{b}}
- & Qwen3-0.6B & \textbf{0.638} & 0.600 & 0.545 & \sd{+0.093}\pstarstar & $3.7\mathrm{e}{-03}$ \\
- & Qwen3-4B   & \textbf{0.738} & 0.653 & 0.698 & $+0.040$ & 0.20 \\
- & Qwen3-8B   & \textbf{0.753} & 0.675 & 0.730 & $+0.023$ & 0.45 \\
- & Mistral-7B & \textbf{0.660} & 0.515 & 0.575 & \sd{+0.085}\pstar & 0.017 \\
- & Granite-3.1-8B & \textbf{0.828} & 0.558 & 0.695 & \sd{+0.133}\pstarstarstar & $1.3\mathrm{e}{-06}$ \\
- & DeepSeek-V4-Flash & 0.763 & 0.605 & \textbf{0.838} & \sd{$-0.074$}\pstarstar & $1\mathrm{e}{-03}$ \\
+ & Qwen3-0.6B & \textbf{0.650} & 0.598 & 0.587 & 0.598\,(zero) & \sd{+0.052}\pstarstar & 0.004 \\
+ & Qwen3-4B   & \textbf{0.748} & 0.679 & 0.703 & 0.703\,(8) & \sd{+0.045}\pstarstar & 0.005 \\
+ & Qwen3-8B   & \textbf{0.761} & 0.666 & 0.729 & 0.729\,(8) & $+0.032$ & 0.056 \\
+ & Mistral-7B & \textbf{0.643} & 0.517 & 0.571 & 0.571\,(8) & \sd{+0.072}\pstarstarstar & $8.4\mathrm{e}{-04}$ \\
+ & Granite-3.1-8B & \textbf{0.805} & 0.554 & 0.685 & 0.685\,(8) & \sd{+0.120}\pstarstarstar & $6.5\mathrm{e}{-12}$ \\
+ & DeepSeek-V4-Flash & 0.765 & 0.603 & 0.803 & \textbf{0.803}\,(8) & \sd{$-0.038$}\pstarstar & 0.009 \\
 \midrule
 \multirow{6}{*}{ARC-Challenge\textsuperscript{c}}
- & Qwen3-0.6B & 0.492 & 0.502 & \textbf{0.597} & \sd{$-0.106$}\pstarstarstar & $3.2\mathrm{e}{-11}$ \\
- & Qwen3-4B   & 0.837 & 0.826 & \textbf{0.882} & \sd{$-0.046$}\pstarstarstar & $2.9\mathrm{e}{-06}$ \\
- & Qwen3-8B   & 0.908 & 0.902 & \textbf{0.913} & $-0.005$ & 0.57 \\
- & Mistral-7B & 0.728 & 0.750 & \textbf{0.779} & \sd{$-0.051$}\pstarstarstar & $9.3\mathrm{e}{-05}$ \\
- & Granite-3.1-8B & 0.708 & 0.732 & \textbf{0.790} & \sd{$-0.082$}\pstarstarstar & $5.8\mathrm{e}{-10}$ \\
- & DeepSeek-V4-Flash & 0.951 & 0.961 & \textbf{0.959} & $-0.007$ & 0.23 \\
+ & Qwen3-0.6B & 0.492 & 0.502 & 0.597 & \textbf{0.597}\,(8) & \sd{$-0.106$}\pstarstarstar & $3.2\mathrm{e}{-11}$ \\
+ & Qwen3-4B   & 0.841 & 0.826 & 0.882 & \textbf{0.882}\,(8) & \sd{$-0.041$}\pstarstarstar & $2.9\mathrm{e}{-06}$ \\
+ & Qwen3-8B   & 0.909 & 0.902 & 0.913 & \textbf{0.913}\,(8) & $-0.004$ & 0.567 \\
+ & Mistral-7B & 0.728 & 0.750 & 0.779 & \textbf{0.779}\,(8) & \sd{$-0.051$}\pstarstarstar & $8.3\mathrm{e}{-05}$ \\
+ & Granite-3.1-8B & 0.708 & 0.732 & 0.790 & \textbf{0.790}\,(8) & \sd{$-0.082$}\pstarstarstar & $5.8\mathrm{e}{-10}$ \\
+ & DeepSeek-V4-Flash & 0.951 & 0.961 & 0.959 & \textbf{0.961}\,(zero) & $-0.010$ & 0.064 \\
 \bottomrule
-\end{tabular}
+\end{tabular}%
+}
 \end{table*}
 
 \begin{table*}[t]
@@ -61,9 +76,11 @@ on \emph{all three tasks}, with ARC showing the sharpest snap-in
 9/18 cells and never lose significantly.}
 \label{tab:placement}
 \small
+\setlength{\tabcolsep}{3.5pt}%
+\fittable{%
 \begin{tabular}{@{}llcccccccc@{}}
 \toprule
-Task & Model & Layers & Best tap & Depth & Plateau onset & mlp (best) & mlp (final) & $\Delta$ & $p$ \\
+Task & Model & \# & Tap & Dep. & Plateau & best & final & $\Delta$ & $p$ \\
 \midrule
 \multirow{6}{*}{BoolQ}
   & Qwen3-0.6B & 28 & L18 & 64\% & L18 (67\%) &0.761 & 0.746 & $+0.010$ & 0.18 \\
@@ -89,16 +106,16 @@ Task & Model & Layers & Best tap & Depth & Plateau onset & mlp (best) & mlp (fin
   & Granite-3.1-8B & 40 & L39 & 100\% & L39 (100\%) &0.708 & 0.708 & $0.000$ & --- \\
   & DeepSeek-V4-Flash & 43 & L42 & 98\% & \sd{L22 (52\%)} &0.951 & 0.951 & $-0.005$ & 0.29 \\
 \bottomrule
-\end{tabular}
+\end{tabular}%
+}
 \end{table*}
 
 \begin{table*}[t]
 \centering
 \caption{\textbf{What each access to the frozen residual costs} (economics
 orientation, not a benchmark). Status stamps every row: ``measured'' = our run
-protocol; ``projected'' = forward arithmetic we did not run; ``off-axis'' = a
-real competing claim on a different cost axis (memory bandwidth), not operator
-FLOPs. Readout \& scoring-loop are the same single pass at equal context ---
+protocol; ``projected'' = forward arithmetic we did not run. Readout \& scoring-loop are
+the same single pass at equal context ---
 the readout's structural gap is \textbf{no generation}, not layer-skipping.
 Early-exit serving shares our placement premise and is prior art for any
 ``skip the tail'' claim.}
@@ -112,31 +129,32 @@ readout (final tap) & 1 fwd , short ctx & no & measured \\
 scoring loop ``.8'' & 1 fwd, long ctx & no & measured \\
 early-exit decode & 1 fwd, tail truncated & yes & projected / prior art \\
 decode / output & $K$ fwds (per token) & yes & measured (no self-stop) \\
-Verity / bandwidth & 1 fwd, memory-bound & yes & off-axis \\
 \bottomrule
 \end{tabular}
 
 \smallskip
 \noindent\emph{Note.} The decode row \emph{is} measured: greedy decode from
 the Answer: prompt never self-terminates (25/25 hit the 300-token cap at 0.6B;
-7/8 hit the 1000-token cap at DeepSeek-V4, \texttt{results/decode\_baseline.json}).
+7/8 hit the 1000-token cap at DeepSeek-V4).
 \end{table*}
 
 \begin{table*}[t]
 \centering
 \caption{\textbf{Controls, all 18 cells.} Every headline number clears all
-four controls. \emph{shufl}: head refit on permuted labels sits at chance.
-\emph{randproj}: a head on random Gaussian projections retains accuracy with
-perm $\approx$ max $\gg$ noise --- the signal is \emph{diffuse}. \emph{ctx}: a
-mean-pooled full-context readout underperforms the final-token readout
-(last.mlp) --- the verdict is computed into the final state, not read off the
-passage. Chance accuracy is $\approx$0.62 (BoolQ), 0.50 (RuleTaker), 0.27
-(ARC).}
+four controls. \emph{label-shuffle}: the head refit on permuted labels sits at
+chance. \emph{random-projection}: a head on random Gaussian projections
+retains accuracy with permuted-basis $\approx$ max-basis $\gg$ noise floor ---
+the signal is \emph{diffuse}. \emph{full-context}: a mean-pooled full-context
+readout underperforms the final-token readout --- the verdict is computed into
+the final state, not read off the passage. Balanced chance is 0.50 (BoolQ,
+RuleTaker) and 0.25 (4-way ARC); the \emph{majority-class} baseline is
+$\approx$0.62 (BoolQ), 0.50 (RuleTaker), 0.27 (ARC).}
 \label{tab:controls}
 \small
+\setlength{\tabcolsep}{4pt}%
 \begin{tabular}{@{}llcccccc@{}}
 \toprule
-Task & Model & shufl (null) & randproj max & randproj perm & randproj noise & ctx.mlp & last.mlp \\
+Task & Model & shuffle & rp max & rp perm & rp noise & full-ctx & final \\
 \midrule
 \multirow{6}{*}{BoolQ}
   & Qwen3-0.6B & 0.533 & 0.734 & 0.725 & 0.601 & 0.667 & 0.746 \\

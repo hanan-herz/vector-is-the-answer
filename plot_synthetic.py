@@ -45,8 +45,18 @@ def main():
     ax1.set_ylim(0.4, 1.0)
     ax1.set_ylabel("val accuracy", fontsize=9)
     ax1.set_title("Multi-hop transitivity: one-pass readout vs decoder loop",
-                  fontsize=10)
-    ax1.legend(fontsize=7.5, loc="upper left", frameon=False, ncols=2)
+                  fontsize=10, pad=18)
+    # Legend outside the axes so labels are not drawn over the bars.
+    ax1.legend(
+        fontsize=8,
+        loc="lower left",
+        bbox_to_anchor=(0.0, 1.02),
+        frameon=False,
+        ncols=4,
+        columnspacing=1.0,
+        handlelength=1.2,
+        borderaxespad=0,
+    )
     for s in ("top", "right"):
         ax1.spines[s].set_visible(False)
 
@@ -62,10 +72,18 @@ def main():
     for s in ("top", "right"):
         ax2.spines[s].set_visible(False)
 
-    fig.suptitle("The relation is in the residual; the loop never exceeds a one-pass readout",
-                 fontsize=10, y=1.02)
+    fig.suptitle(
+        "The relation is in the residual; the loop never exceeds a one-pass readout",
+        fontsize=10,
+        y=1.08,
+    )
     fig.tight_layout()
-    fig.savefig("paper/figures/synthetic_multihop.png", dpi=170, bbox_inches="tight")
+    fig.savefig(
+        "paper/figures/synthetic_multihop.png",
+        dpi=170,
+        bbox_inches="tight",
+        pad_inches=0.15,
+    )
     print("wrote synthetic_multihop.png")
 
 

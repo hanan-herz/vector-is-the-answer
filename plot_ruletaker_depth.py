@@ -119,8 +119,7 @@ def main():
     ax0.set_ylim(0.45, 1.0)
     ax0.set_ylabel("Accuracy")
     ax0.set_title(
-        "RuleTaker n2k — overall (train 2000 · val 1000 · loop_val 400)\n"
-        "8B omitted until L40S run finishes",
+        "RuleTaker n2k — overall (train 2000 · val 1000 · loop 1000, identical rows)",
         fontsize=11,
     )
     ax0.legend(fontsize=8, loc="lower right", ncol=2)
@@ -162,7 +161,7 @@ def main():
     ax1.text(
         0.5, -0.18,
         "loop_zero omitted from depth panel for clarity; overall bars include it. "
-        "Depth n is among loop_val=400 (not full val 1000).",
+        "Depth n is among the full val 1000 (identical rows for mlp and loop).",
         transform=ax1.transAxes, ha="center", fontsize=8, color="#444",
     )
 
