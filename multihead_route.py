@@ -39,17 +39,19 @@ from sklearn.preprocessing import StandardScaler
 from common import load_model, n_layers as discover_layers, resolve_model
 from probe_main import mlp_probe
 from tasks import get_task
-from bench import (
+from common import (
     CACHE_DIR,
     PAD_MAX,
     RESULTS_DIR,
     cache_path,
     cache_vectors,
-    encode_labels,
-    fmt_example,
     load_cached_vectors,
     model_slug,
     task_dirs,
+)
+from bench import (
+    encode_labels,
+    fmt_example,
     to_vecs,
 )
 
@@ -130,9 +132,10 @@ def ensure_residuals(
     cache_dir = dirs["cache"]
     keys = ["last_tr", "last_va", "ytr", "yva"]
     cached = load_cached_vectors(
-        max_train, max_val, keys, cache_dir=cache_dir, layer=layer)
+        max_train, max_val, keys, cache_dir=cache_dir, layer=layer,
+        batch=batch)
     if cached is not None:
-        print(f"  [{task}] cache hit {cache_path(cache_dir, max_train, max_val, layer=layer)}")
+        print(f"  [{task}] cache hit {cache_path(cache_dir, max_train, max_val, layer=layer, batch=batch)}")
         return {
             "last_tr": cached["last_tr"].astype(np.float32),
             "last_va": cached["last_va"].astype(np.float32),
@@ -144,7 +147,7 @@ def ensure_residuals(
     # train/val order (ARC load uses fixed seeds).
     if task == "arc":
         full = load_cached_vectors(
-            1117, 1165, keys, cache_dir=cache_dir, layer=layer)
+            1117, 1165, keys, cache_dir=cache_dir, layer=layer, batch=batch)
         if full is not None and max_train <= 1117 and max_val <= 1165:
             print(f"  [{task}] slicing full ARC cache → t{max_train}/v{max_val}")
             # Use the cache's own y — do NOT re-load a shuffled subsample
@@ -162,7 +165,7 @@ def ensure_residuals(
                 max_train, max_val,
                 last_tr=out["last_tr"], last_va=out["last_va"],
                 ytr=ytr, yva=yva,
-                cache_dir=cache_dir, layer=layer,
+                cache_dir=cache_dir, layer=layer, batch=batch,
             )
             return out
 
@@ -182,7 +185,7 @@ def ensure_residuals(
     cache_vectors(
         max_train, max_val,
         last_tr=last_tr, last_va=last_va, ytr=ytr, yva=yva,
-        cache_dir=cache_dir, layer=layer,
+        cache_dir=cache_dir, layer=layer, batch=batch,
     )
     return {
         "last_tr": last_tr.astype(np.float32),
@@ -397,12 +400,13 @@ def main():
             args.max_train, args.max_val,
             ["last_tr", "last_va", "ytr", "yva"],
             cache_dir=dirs["cache"], layer=layer if layer is not None else 27,
+            batch=args.batch,
         )
         if cached is None and t == "arc":
             # try full ARC at layer 27
             cached_full = load_cached_vectors(
                 1117, 1165, ["last_tr", "last_va", "ytr", "yva"],
-                cache_dir=dirs["cache"], layer=27)
+                cache_dir=dirs["cache"], layer=27, batch=args.batch)
             if cached_full is not None and layer is None:
                 layer = 27
         if cached is None:

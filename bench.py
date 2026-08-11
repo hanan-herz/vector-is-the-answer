@@ -47,7 +47,9 @@ if os.path.exists("/root/bench") and "/root/bench" not in sys.path:
     # bare remote clone: repo mounted to /root/bench/, entrypoint at /root/bench.py
     sys.path.insert(0, "/root/bench")
 
-from common import load_model, resolve_model
+from common import (CACHE_DIR, LOOP_PAD_MAX, PAD_MAX, RESULTS_DIR,
+                    cache_path, cache_vectors, load_cached_vectors, load_model,
+                    log, model_slug, resolve_model, task_dirs)
 from common import n_layers as discover_layers
 from probe_main import mlp_probe
 
@@ -60,64 +62,6 @@ logging.basicConfig(
 )
 LOG = logging.getLogger("bench")
 
-def log(*a):
-    LOG.info(" ".join(str(x) for x in a))
-
-PAD_MAX = 384
-# Loop arm's own truncation budget. Default 2048 (not PAD_MAX): at 384
-# left-truncation eats the prepended few-shot exemplars on long rows and k=8
-# silently collapses to zero-shot (truncation caveat). Deliberately pro-baseline
-# (loop sees ~5x the readout's evidence) -> readout wins are conservative.
-LOOP_PAD_MAX = 2048
-
-_REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
-CACHE_DIR = os.environ.get("BENCH_CACHE_DIR",
-                          os.path.join(_REPO_ROOT, "cloud_bench_cache"))
-# Curated thesis shelf (git-tracked). Distinct from CACHE_DIR, which mirrors the
-# Modal volume and is gitignored. Promote winners with --promote after a run.
-RESULTS_DIR = os.environ.get("BENCH_RESULTS_DIR",
-                             os.path.join(_REPO_ROOT, "results"))
-
-# Artifact layout (local CACHE_DIR and Modal /data share the same shape):
-#
-#   {artifact_root}/{model_slug}/{task}/
-#     runs/{run_id}.json     # canonical full metrics+meta (never overwritten)
-#     latest.json            # last successful full result for this task
-#     stages.jsonl           # progressive stage dumps for THIS task only
-#     heads/head_l{L}.npz     # trained readout for this task (latest)
-#     cache/vec_t{N}_v{M}_l{L}_p{P}_b{B}.npz
-#     cache/loop_v{M}_l{L}_p{P}_b{B}.npz
-#
-# model_slug always comes from resolve_model(alias_or_id) so `0.6B` and
-# `Qwen/Qwen3-0.6B` land in the same tree (Qwen__Qwen3-0.6B).
-#
-# Optional promote: copy the *canonical run file* into RESULTS_DIR under a
-# stable name (falls back to latest.json only with a warning), e.g.
-#   modal run --detach bench.py ... --promote ruletaker_dsv4_n2k.json
-#   modal run --detach bench.py ... --promote results/ruletaker_dsv4_n2k.json
-# Prefer runs/{run_id}.json over latest.json — concurrent/smoke runs race
-# the latest pointer.
-
-
-def model_slug(size: str) -> str:
-    """Filesystem-safe canonical model id (alias or HF repo → one slug)."""
-    return resolve_model(size).replace("/", "__")
-
-
-def task_dirs(artifact_root: str, size: str, task: str) -> dict[str, str]:
-    """Build and create the per-(model, task) directory tree. See CACHE_DIR note."""
-    root = os.path.join(artifact_root, model_slug(size), task)
-    paths = {
-        "task": root,
-        "runs": os.path.join(root, "runs"),
-        "heads": os.path.join(root, "heads"),
-        "cache": os.path.join(root, "cache"),
-        "latest": os.path.join(root, "latest.json"),
-        "stages": os.path.join(root, "stages.jsonl"),
-    }
-    for key in ("task", "runs", "heads", "cache"):
-        os.makedirs(paths[key], exist_ok=True)
-    return paths
 
 
 # ---------------------------------------------------------------- modal -----
@@ -445,47 +389,6 @@ def _run_bench_remote(
     }
 
 
-def cache_path(cache_dir, max_train, max_val, tag="", layer=None,
-               pad_max=PAD_MAX, batch=None):
-    """Path under task cache/. Task + model live in the directory tree, not the
-    filename. Layer + pad_max MUST stay in the key (stale-vector FIXME); batch
-    MUST too: batched-kernel numerics are batch-composition dependent (DSV4
-    FP8 moved RuleTaker loop.8 0.7975 -> 0.8375 between b=4 and b=8 on the
-    same rows/weights), so vectors or loop scores computed at one batch size
-    must never silently replay for a run at another. batch=None keeps the old
-    key shape for external/back-compat callers only."""
-    ltag = f"_l{layer}" if layer is not None else ""
-    btag = f"_b{batch}" if batch is not None else ""
-    if tag == "_loop" or (tag and "loop" in tag):
-        fname = f"loop_v{max_val}{ltag}_p{pad_max}{btag}.npz"
-    else:
-        fname = f"vec_t{max_train}_v{max_val}{ltag}_p{pad_max}{btag}{tag}.npz"
-    path = os.path.join(cache_dir, fname)
-    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    return path
-
-
-def cache_vectors(max_train, max_val, tag="", cache_dir=CACHE_DIR,
-                  layer=None, pad_max=PAD_MAX, batch=None, **arrays):
-    """Persist computed hidden vectors + labels so reruns/seed sweeps skip the
-    expensive forward passes. Save async stays out of the training loop; a
-    blocking save at exit is acceptable here (one-shot per run)."""
-    path = cache_path(cache_dir, max_train, max_val, tag,
-                      layer=layer, pad_max=pad_max, batch=batch)
-    np.savez(path, **arrays)
-    log(f"[cache] saved {path}")
-
-
-def load_cached_vectors(max_train, max_val, keys, tag="", cache_dir=CACHE_DIR,
-                        layer=None, pad_max=PAD_MAX, batch=None):
-    path = cache_path(cache_dir, max_train, max_val, tag,
-                      layer=layer, pad_max=pad_max, batch=batch)
-    if not os.path.exists(path):
-        return None
-    with np.load(path) as z:
-        if not all(k in z for k in keys):
-            return None
-        return {k: z[k] for k in keys}
 
 
 # ------------------------------------------------- progressive results save --
@@ -666,7 +569,7 @@ def to_vecs_multi(model, tok, texts, layers, batch=24, label=""):
     #     on the same texts, once full-forward and once with the trunk sliced
     #     at `cut`, and assert per-layer outputs match (bit-for-bit on MPS;
     #     within fp tolerance on CUDA/DSV4). That is the "untried serving
-    #     path" caveat in paper/implciation-early-layer.md §3 made concrete.
+    #     path" caveat in paper/implication-early-layer.md §3 made concrete.
     #   * Implementation sketch: slice the trunk for the forward only, e.g.
     #     run `model.model` with `layers[:cut+1]`, or monkeypatch
     #     `model.model.layers` to `layers[:cut+1]` around the `model(**enc)`

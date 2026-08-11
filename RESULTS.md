@@ -520,7 +520,7 @@ These three sweeps together (BoolQ 0.6B ns / RuleTaker 4B \*\* / RuleTaker 8B
 \*) support the §2 hedge: the placement shape is *consistent with* late-layer
 next-token specialization, but attributing it causally (and any "lop off the
 last N layers" claim) needs the per-layer next-token probe we flag as future
-work — see `paper/implciation-early-layer.md` §2.
+work — see `paper/implication-early-layer.md` §2.
 
 ![Readout probe placement sweeps — BoolQ 0.6B and RuleTaker 4B](layersweep_placement.png)
 
@@ -628,7 +628,7 @@ significantly at **9/18 cells** and **never loses significantly**. Patterns:
 
 Causal attribution (late-layer next-token specialization) still needs the
 per-layer next-token probe flagged as future work — see
-`paper/implciation-early-layer.md` §2.
+`paper/implication-early-layer.md` §2.
 
 ## Ext 15 — campaign standardization (2026-08-10): batch-8 rebaseline, ghost-cache purge, full matrix
 

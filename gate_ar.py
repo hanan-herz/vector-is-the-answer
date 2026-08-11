@@ -37,12 +37,14 @@ from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import StandardScaler
 
 from common import load_model, n_layers as discover_layers, resolve_model
-from bench import (
+from common import (
     CACHE_DIR,
     RESULTS_DIR,
     load_cached_vectors,
     model_slug,
     task_dirs,
+)
+from bench import (
     to_vecs,
 )
 from multihead_route import (
@@ -179,7 +181,8 @@ def main():
         cached = load_cached_vectors(
             args.max_train, args.max_val,
             ["last_tr", "last_va", "ytr", "yva"],
-            cache_dir=dirs["cache"], layer=layer if layer is not None else 27)
+            cache_dir=dirs["cache"], layer=layer if layer is not None else 27,
+            batch=args.batch)
         if cached is None:
             raise SystemExit(f"missing residual cache for {t} — run multihead_route.py first")
         closed_tr.append(cached["last_tr"].astype(np.float32))
@@ -311,7 +314,7 @@ def main():
         dirs = task_dirs(CACHE_DIR, args.size, t)
         cached = load_cached_vectors(
             args.max_train, args.max_val, ["yva"],
-            cache_dir=dirs["cache"], layer=layer)
+            cache_dir=dirs["cache"], layer=layer, batch=args.batch)
         yva = np.asarray(cached["yva"])
         sl = np.arange(j * n_va_task, (j + 1) * n_va_task)
         pred, conf, _ = head_forward(heads[t], Xclosed_va[sl])

@@ -37,16 +37,18 @@ from scipy import stats
 import torch
 
 from common import load_model, n_layers as discover_layers, resolve_model
-from bench import (
+from common import (
     CACHE_DIR,
     LOOP_PAD_MAX,
     RESULTS_DIR,
-    encode_labels,
-    fmt_example,
     load_cached_vectors,
-    loop_report,
     model_slug,
     task_dirs,
+)
+from bench import (
+    encode_labels,
+    fmt_example,
+    loop_report,
 )
 from multihead_route import (
     TASKS,
@@ -93,7 +95,7 @@ def head_pred_from_task(task, size, layer, max_val, model=None, tok=None,
     dirs = task_dirs(CACHE_DIR, size, task)
     cached = load_cached_vectors(
         max_train, max_val, ["last_va", "yva"], cache_dir=dirs["cache"],
-        layer=layer)
+        layer=layer, batch=batch)
     if cached is not None:
         X = np.asarray(cached["last_va"][:max_val], dtype=np.float32)
         y = np.asarray(cached["yva"][:max_val])
@@ -184,7 +186,8 @@ def main():
             dirs = task_dirs(CACHE_DIR, args.size, t)
             if load_cached_vectors(
                     _FULL_TRAIN_FOR_VAL[t], nv, ["last_va", "yva"],
-                    cache_dir=dirs["cache"], layer=layer) is None:
+                    cache_dir=dirs["cache"], layer=layer,
+                    batch=args.batch) is None:
                 print(f"  [extract] {t} full residuals t{_FULL_TRAIN_FOR_VAL[t]}/v{nv}...")
                 ensure_residuals(
                     args.size, t, _FULL_TRAIN_FOR_VAL[t], nv,
