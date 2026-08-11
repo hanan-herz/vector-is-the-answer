@@ -63,6 +63,6 @@ ax.set_title("One-pass residual readout vs fair autoregressive loop (BoolQ)\n"
 ax.legend(fontsize=8.5, loc="lower right")
 
 plt.tight_layout()
-out = "boolq_results.png"
+out = "paper/figures/boolq_results.png"
 plt.savefig(out, dpi=150)
 print("saved", out)

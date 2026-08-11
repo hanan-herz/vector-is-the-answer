@@ -129,5 +129,5 @@ fig.suptitle("Readout placement sweeps (all batch 8) — mid-depth taps signific
              "never lose significantly; shaded band = plateau onset (first layer within 1pt of the final-layer readout)",
              fontsize=12.5, y=1.01)
 fig.tight_layout()
-fig.savefig("layersweep_placement.png", dpi=150, bbox_inches="tight")
+fig.savefig("paper/figures/layersweep_placement.png", dpi=150, bbox_inches="tight")
 print("saved layersweep_placement.png")

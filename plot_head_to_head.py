@@ -176,8 +176,8 @@ def main():
     )
     fig.tight_layout()
     outs = [
-        ROOT / "head_to_head_three_tasks.png",
-        ROOT / "head_to_head_boolq_ruletaker.png",  # legacy alias (now 3 panels)
+        ROOT / "paper/figures/head_to_head_three_tasks.png",
+        ROOT / "paper/figures/head_to_head_boolq_ruletaker.png",  # legacy alias (now 3 panels)
     ]
     for out in outs:
         fig.savefig(out, dpi=150, bbox_inches="tight")

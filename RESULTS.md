@@ -37,13 +37,13 @@ makes this statistical: with the loop given 64 balanced exemplars and a
 (+3.8pt over the best loop, McNemar p=2.4e-05) and 4B/8B are exact ties
 (all ns) — supervision-starvation is ruled out as the explanation.
 
-![One-pass readout vs fair loop on BoolQ](boolq_results.png)
+![One-pass readout vs fair loop on BoolQ](paper/figures/boolq_results.png)
 
 *Figure: the four full-val runs (0.6B / 4B / 8B / DeepSeek-V4).
 Regenerate with `python plot_boolq.py` (reads all numbers from
 `results/*.json`).*
 
-*Plot path:* `/Users/hanan/Projects/llm-as-latent-only/boolq_results.png`
+*Plot path:* `/Users/hanan/Projects/llm-as-latent-only/paper/figures/boolq_results.png`
 
 Two controls recur throughout: **randproj** (a random-Gaussian-projected linear
 head ≈ the full readout ⇒ the signal is *diffuse*, no privileged subspace) and
@@ -173,8 +173,8 @@ matched-supervision discipline as BoolQ.
 run_ids `833647`/`e15da9`/`2a40b2`/`85201d` carried pre-fix loop scores and
 mixed batches; see Ext 15 for the incident and the deltas.)
 
-Plots: `ruletaker_depth_strata.png` (overall + depth),
-`head_to_head_three_tasks.png` (BoolQ · RuleTaker · ARC). Regenerate:
+Plots: `paper/figures/ruletaker_depth_strata.png` (overall + depth),
+`paper/figures/head_to_head_three_tasks.png` (BoolQ · RuleTaker · ARC). Regenerate:
 `python plot_ruletaker_depth.py`, `python plot_head_to_head.py`.
 
 ### Overall (matched loop comparison)
@@ -246,15 +246,15 @@ sees 8 demos). All four canonicals re-run at batch 8 on pinned GPUs after the
 pre-fix loop-cache incident (Ext 15) — earlier versions of this table carried
 inflated loop.8 at 4B/8B (0.928/0.915, ghost caches) and a stale 0.625 at 0.6B.
 
-![RuleTaker n2k overall + depth](ruletaker_depth_strata.png)
+![RuleTaker n2k overall + depth](paper/figures/ruletaker_depth_strata.png)
 
-*Plot path:* `/Users/hanan/Projects/llm-as-latent-only/ruletaker_depth_strata.png`
+*Plot path:* `/Users/hanan/Projects/llm-as-latent-only/paper/figures/ruletaker_depth_strata.png`
 
-![BoolQ · RuleTaker · ARC head-to-head](head_to_head_three_tasks.png)
+![BoolQ · RuleTaker · ARC head-to-head](paper/figures/head_to_head_three_tasks.png)
 
 *Plot paths:*
-- `/Users/hanan/Projects/llm-as-latent-only/head_to_head_three_tasks.png`
-- `/Users/hanan/Projects/llm-as-latent-only/head_to_head_boolq_ruletaker.png` (same 3-panel figure; legacy name)
+- `/Users/hanan/Projects/llm-as-latent-only/paper/figures/head_to_head_three_tasks.png`
+- `/Users/hanan/Projects/llm-as-latent-only/paper/figures/head_to_head_boolq_ruletaker.png` (same 3-panel figure; legacy name)
 
 ## Ext 12 — ARC-Challenge full, multi-model (`bench.py --task arc`)
 
@@ -286,7 +286,7 @@ Also under `cloud_bench_cache/{slug}/arc/runs/{run_id}.json`. Prefer `runs/` or
 `results/` over `latest.json` (last-writer pointer; empty promote race hit DSV4
 once — shelf was filled from the run file).
 
-Plot: `/Users/hanan/Projects/llm-as-latent-only/arc_results.png`  
+Plot: `/Users/hanan/Projects/llm-as-latent-only/paper/figures/arc_results.png`  
 Regenerate: `python plot_arc.py`.
 
 ### Overall (full test, matched loop rows)
@@ -392,7 +392,7 @@ promote with FileNotFoundError (hit on the 4B/8B clients). `run_bench` now
 commits the volume before returning, and the client retries fetch+promote
 6× with 5s backoff.
 
-![BoolQ budget-matched k-curve vs one-pass readout](boolq_budget_kcurve.png)
+![BoolQ budget-matched k-curve vs one-pass readout](paper/figures/boolq_budget_kcurve.png)
 
 *Figure: loop accuracy as a function of balanced exemplars k (0/8/16/32/64,
 `loop_pad_max=8192`; solid blue) vs the one-pass readout (red: 4-seed vote,
@@ -522,7 +522,7 @@ next-token specialization, but attributing it causally (and any "lop off the
 last N layers" claim) needs the per-layer next-token probe we flag as future
 work — see `paper/implication-early-layer.md` §2.
 
-![Readout probe placement sweeps — BoolQ 0.6B and RuleTaker 4B](layersweep_placement.png)
+![Readout probe placement sweeps — BoolQ 0.6B and RuleTaker 4B](paper/figures/layersweep_placement.png)
 
 *Figure: one-pass readout accuracy vs tapped residual layer, all 12
 task×model cells (mlp red, ± per-seed std band; linear dashed; best loop arm

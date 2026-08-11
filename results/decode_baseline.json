@@ -1,0 +1,33 @@
+{
+  "experiment": "Self-terminating greedy decode baseline (Ext 6 + DSV4)",
+  "claim_tested": "Does a greedy decode from the bench 'Answer:' prompt ever stop on its own? If not, the readout's 'no generation' advantage is unconditional.",
+  "protocol": {
+    "prompt": "fmt_example: 'Passage: ...\\nQuestion: ...\\nAnswer:' (plain, no chat template)",
+    "decode": "greedy (do_sample=False / temperature=0), max_new_tokens=cap",
+    "dataset": "google/boolq validation",
+    "script": "cloud/decode_measure.py",
+    "classification": "finish_reason / first_eos -> EOS (self-terminated) vs CAP (hit token cap)"
+  },
+  "rows": [
+    {
+      "model": "Qwen3-0.6B",
+      "n": 25,
+      "caps": [200, 300],
+      "self_terminated": 0,
+      "hit_final_cap": 25,
+      "note": "Ext 6; 25/25 hit cap 200, 8/8 re-decoded hit cap 300. Source: RESULTS.md 'FLOPs, honestly'.",
+      "artifact": "RESULTS.md Ext 6 (RESULTS_SYNTHETIC.md Exp 6)"
+    },
+    {
+      "model": "DeepSeek-V4-Flash-0731",
+      "n": 8,
+      "caps": [1000],
+      "self_terminated": 1,
+      "hit_final_cap": 7,
+      "note": "run ap-xDnS2xG9Rt1AyVdHzvZxdH; 7/8 hit 1000-token cap, 1/8 EOS at 49 tokens.",
+      "artifact": "results/decode_dsv4_cap1000_results.json"
+    }
+  ],
+  "status": "measured (not projected). Coverage: 2 models (0.6B dense + DSV4 MoE), small n. Extend with Qwen3-4B/8B, Mistral-7B, Granite-3.1-8B via `modal run cloud/decode_measure.py --repo <hf_id> --samples 25 --caps 200,300` to fill the table.",
+  "headline": "Greedy decode from the Answer: prompt essentially never self-terminates (25/25 cap at 0.6B; 7/8 cap at DSV4). The readout's structural advantage — one forward pass, no generated tokens — is measured, not assumed."
+}

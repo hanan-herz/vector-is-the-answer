@@ -80,6 +80,6 @@ ax.set_title(
 )
 ax.legend(fontsize=8.5, loc="lower right")
 plt.tight_layout()
-out = ROOT / "arc_results.png"
+out = ROOT / "paper/figures/arc_results.png"
 plt.savefig(out, dpi=150)
 print("saved", out)

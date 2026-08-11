@@ -167,7 +167,7 @@ def main():
     )
 
     fig.tight_layout()
-    out = ROOT / "ruletaker_depth_strata.png"
+    out = ROOT / "paper/figures/ruletaker_depth_strata.png"
     fig.savefig(out, dpi=150, bbox_inches="tight")
     print("saved", out.resolve())
 

@@ -96,5 +96,5 @@ for ax, size in zip(axes, SIZES):
 fig.suptitle("Budget-matched loop k-curve vs one-pass readout — BoolQ (full val, n=3270, paired)",
              fontsize=13, y=1.02)
 fig.tight_layout()
-fig.savefig("boolq_budget_kcurve.png", dpi=150, bbox_inches="tight")
+fig.savefig("paper/figures/boolq_budget_kcurve.png", dpi=150, bbox_inches="tight")
 print("saved boolq_budget_kcurve.png")

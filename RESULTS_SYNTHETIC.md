@@ -7,7 +7,7 @@ semantic roles, closed-set extraction, latent-loop drift). Small-n (700 train /
 
 Code: `probe_main.py` (transitivity), `matched.py` / `boundary.py` /
 `add_verify.py` / `semantic.py` (Exp 5), `extract.py` (Exp 6), `drift.py`
-(Exp 7). Plot: `probe_results.png`. Models `Qwen3-{0.6B,4B,8B}` fp16 on Apple M5.
+(Exp 7). Plot: `paper/figures/probe_results.png`. Models `Qwen3-{0.6B,4B,8B}` fp16 on Apple M5.
 
 ## Task — multi-hop transitivity with shuffled facts + distractors
 
