@@ -121,7 +121,7 @@ never generates. Status stamps every row: ``measured'' = our run protocol;
 competing claim on a different cost axis (memory bandwidth), not operator
 FLOPs. Readout \& scoring-loop are the same single pass at equal context ---
 the readout's structural gap is \textbf{no generation}, not layer-skipping.
-Early-exit serving (EE-LLM, CALM, layer-removal, Verity) shares our placement
+Early-exit serving (EE-LLM, CALM, LayerSkip, layer-removal) shares our placement
 premise and is prior art for any ``skip the tail'' claim; it is not claimed
 here. Operator-FLOP figures would need true (active) parameter counts per
 model and a per-cell context length --- footnoted, not fabricated.}
@@ -135,13 +135,12 @@ readout (final tap) & 1 fwd , short ctx & no & measured \\
 scoring loop ``.8'' & 1 fwd, long ctx & no & measured \\
 early-exit decode & 1 fwd, tail truncated & yes & projected / prior art \\
 decode / output & $K$ fwds (per token) & yes & projected \\
-Verity / bandwidth & 1 fwd, memory-bound & yes & off-axis \\
 \bottomrule
 \end{tabular}
 
 \smallskip
 \noindent\emph{Footnote.} ``Operator-FLOP'' = total multiply-add throughput, not
-wall-clock; memory-bandwidth engineering (Verity-style) is a separate axis. Any
+wall-clock; memory-bandwidth engineering is a separate axis. Any
 absolute FLOPs number would require each model's \emph{active} parameter count
 (routed, for MoE) and its per-cell context length ($\mathrm{pad\_max}$); both are
 open (DSV4 active-params, and no self-terminating decode was run).
