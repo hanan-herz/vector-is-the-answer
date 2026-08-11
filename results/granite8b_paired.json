@@ -8,7 +8,16 @@
       "loop8_acc": 0.8641975308641975,
       "b_readout_only": 19,
       "c_loop_only": 23,
-      "mcnemar_p": 0.6439689563703723
+      "mcnemar_p": 0.6439689563703723,
+      "placement": {
+        "best_layer": 20,
+        "best_acc": 0.8709480122324159,
+        "final_acc": 0.8532110091743119,
+        "delta": 0.017737003058103995,
+        "b_best_only": 180,
+        "c_final_only": 122,
+        "mcnemar_p": 0.001005697822688799
+      }
     },
     "ruletaker": {
       "n": 400,
@@ -16,7 +25,16 @@
       "loop8_acc": 0.695,
       "b_readout_only": 86,
       "c_loop_only": 33,
-      "mcnemar_p": 1.266758571730809e-06
+      "mcnemar_p": 1.266758571730809e-06,
+      "placement": {
+        "best_layer": 20,
+        "best_acc": 0.816,
+        "final_acc": 0.805,
+        "delta": 0.010999999999999899,
+        "b_best_only": 67,
+        "c_final_only": 56,
+        "mcnemar_p": 0.3672967393938885
+      }
     },
     "arc": {
       "n": 1165,
@@ -24,7 +42,11 @@
       "loop8_acc": 0.7896995708154506,
       "b_readout_only": 65,
       "c_loop_only": 157,
-      "mcnemar_p": 5.781461057657231e-10
+      "mcnemar_p": 5.781461057657231e-10,
+      "placement": {
+        "best_layer": 39,
+        "note": "best tap is the final layer; no placement advantage"
+      }
     }
   }
 }

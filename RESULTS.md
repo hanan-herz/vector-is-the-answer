@@ -564,11 +564,12 @@ one-pass method most needs it. L18 (0.845) actually *loses* to the loop — so
 too-early taps are worse than the final layer, and the optimum is deep
 (L30/36 = 83% vs 64% at 0.6B).
 
-### Cross-sweep summary — the full 15-cell placement matrix (all batch 8)
+### Cross-sweep summary — the full 18-cell placement matrix (all batch 8)
 
 Completed 2026-08-10 (Ext 15): DSV4 BoolQ/RuleTaker sweeps, the first-ever ARC
 sweeps (all four models), and the two missing Qwen cells (0.6B RuleTaker,
-4B BoolQ). Paired McNemar: best swept tap vs final layer, same rows.
+4B BoolQ). Extended 2026-08-11 (Ext 17): Granite-3.1-8B all three tasks.
+Paired McNemar: best swept tap vs final layer, same rows.
 
 | task | model | layers | best tap | depth | plateau onset (≥final−1pt) | mlp (best) | mlp (final) | best−final | paired p |
 |---|---|---|---|---|---|---|---|---|---|
@@ -576,16 +577,19 @@ sweeps (all four models), and the two missing Qwen cells (0.6B RuleTaker,
 | BoolQ | Qwen3-4B | 36 | L24 | 67% | L24 (69%) | 0.868 | 0.856 | +0.011 | **0.038 \*** |
 | BoolQ | Qwen3-8B | 36 | L30 | 83% | L24 (69%) | 0.889 | 0.878 | +0.011 | **0.016 \*** |
 | BoolQ | Mistral-7B | 32 | L16 | 50% | **L16 (52%)** | 0.863 | 0.841 | +0.022 | **1.1e-04 \*\*\*** |
+| BoolQ | Granite-3.1-8B | 40 | L20 | 51% | **L17 (44%)** | 0.868 | 0.854 | +0.018 | **1.0e-03 \*\*** |
 | BoolQ | DeepSeek-V4 | 43 | L36 | 86% | **L22 (52%)** | 0.900 | 0.896 | +0.005 | 0.20 ns |
 | RuleTaker | Qwen3-0.6B | 28 | L18 | 64% | **L13 (48%)** | 0.688 | 0.650 | +0.036 | **0.020 \*** |
 | RuleTaker | Qwen3-4B | 36 | L24 | 67% | L24 (69%) | 0.781 | 0.744 | +0.038 | **2.8e-03 \*\*** |
 | RuleTaker | Qwen3-8B | 36 | L24 | 67% | L24 (69%) | 0.778 | 0.758 | +0.025 | **0.040 \*** |
 | RuleTaker | Mistral-7B | 32 | L18 | 56% | **L11 (35%)** | 0.702 | 0.643 | +0.059 | **5.2e-05 \*\*\*** |
+| RuleTaker | Granite-3.1-8B | 40 | L20 | 51% | L20 (51%) | 0.816 | 0.805 | +0.011 | 0.37 ns |
 | RuleTaker | DeepSeek-V4 | 43 | L29 | 67% | **L22 (52%)** | 0.776 | 0.765 | +0.021 | 0.057 ns |
 | ARC | Qwen3-0.6B | 28 | L26 | 93% | L26 (96%) | 0.500 | 0.492 | +0.013 | 0.082 ns |
 | ARC | Qwen3-4B | 36 | L29 | 81% | L24 (69%) | 0.856 | 0.841 | +0.022 | **2.2e-04 \*\*\*** |
 | ARC | Qwen3-8B | 36 | L35 | 97% | L24 (69%) | 0.909 | 0.909 | +0.001 | 1.00 ns |
 | ARC | Mistral-7B | 32 | L20 | 63% | L18 (58%) | 0.741 | 0.728 | +0.013 | 0.50 ns |
+| ARC | Granite-3.1-8B | 40 | L39 | 100% | L39 (100%) | 0.708 | 0.708 | 0.000 | — |
 | ARC | DeepSeek-V4 | 43 | L42 | 98% | **L22 (52%)** | 0.951 | 0.951 | −0.005 | 0.29 ns |
 
 (**Layers** = stack depth (28/36/36/43); taps are residual-layer indices.
@@ -597,7 +601,7 @@ L22), where BoolQ/RuleTaker accumulate gradually. Shaded bands in the figure
 mark the plateau region per cell.)
 
 **Reading.** Placement was *not* a settled non-issue: the mid-depth tap wins
-significantly at **8/15 cells** and **never loses significantly**. Patterns:
+significantly at **9/18 cells** and **never loses significantly**. Patterns:
 
 - **Optimum depth is task-stable, not scale-driven.** BoolQ/RuleTaker peak at
   64–86% depth at every scale; the RuleTaker optimum stays at 2/3 depth from
@@ -614,6 +618,13 @@ significantly at **8/15 cells** and **never loses significantly**. Patterns:
   (32×4096) onsets at 52/35/58% vs Qwen3-8B's (36×4096) uniform 69%, with the
   largest final-layer penalty at scale (RuleTaker +5.9pt ***): at fixed width,
   the shallower stack uses less of itself.
+- **…but onset fraction is not monotone in depth (Ext 17).** Granite-3.1-8B
+  (40×4096) onsets at 44/51/100%, so across the fixed-width ladder
+  (32/36/40 deep) fraction-invariance is dead. What survives: BoolQ/RuleTaker
+  onsets cluster at **absolute layers L11–L24** regardless of stack depth
+  (L16/11, L24/24, L17/20), while ARC onset tracks readout saturation, not
+  depth — DSV4 onsets ARC at L22 (readout 0.951) where Granite, still rising
+  at L39 (readout 0.708), never plateaus.
 
 Causal attribution (late-layer next-token specialization) still needs the
 per-layer next-token probe flagged as future work — see
@@ -726,3 +737,67 @@ paired stats `results/mistral7b_paired.json`.
 **Caveat:** Mistral BoolQ loop ran at loop_pad 2048 vs the Qwen canonical 8192
 (prompts ≪ 2048 tokens, so generations are unaffected); everything else is
 protocol-identical.
+
+## Ext 17 — Depth-ladder completion + the left-padding bug: Granite-3.1-8B
+
+**Q:** complete the fixed-width depth ladder — Mistral-7B (32×4096) → Qwen3-8B
+(36×4096) → Granite-3.1-8B (40×4096) — to test whether plateau onset is
+fraction-invariant or absolute-layer-invariant in stack depth, and whether
+the task law holds in a third family.
+
+**Protocol:** canonical b8 on B200, canonical protocols, sweep layers
+1/7/13/17/20/23/26/29/33/39. Paired stats `results/granite8b_paired.json`.
+
+**The padding bug (first runs invalid, diagnosed, fixed, rerun).** The
+initial Granite runs showed a *dead readout at every layer* (BoolQ 0.637,
+RuleTaker 0.512, ARC 0.263 — all ≈ base rate, probes indistinguishable from
+shuffled-label controls) with a perfectly healthy loop. That combination
+turned out to be impossible for a genuine model property — the loop's Yes/No
+logits are a *linear* read of the same final hidden state the probes see —
+and the hunt (local M5 replications, hook-point verification) landed on the
+harness: vector extraction indexed the last real token as
+`attention_mask.sum(1)−1`, which equals the last-token position only under
+right padding. **Granite's tokenizer pads left** (Qwen/Mistral/DSV4 all pad
+right), so every Granite probe vector was taken at a pad or mid-prompt
+position while the loop path (`logits[:, −1]`) stayed correct. Fix:
+padding-side-robust index (`S−1−flip(attn).argmax(1)`, identical output under
+right padding), validated by Modal smokes (Granite BoolQ 1k/500: readout
+0.856 vs 0.637 pre-fix; Qwen3-0.6B regression unchanged). Poisoned caches
+purged; full reruns below are the only valid Granite numbers. Canonical
+Qwen/Mistral/DSV4 results are unaffected.
+
+| task | readout (L39) | loop.0 | loop.8 | paired p | best tap | best−final | p | onset |
+|---|---|---|---|---|---|---|---|---|
+| BoolQ | 0.854 | 0.815 | **0.864** | 0.64 ns | L20 (51%) | +0.018 | **1.0e-03 \*\*** | **L17 (44%)** |
+| RuleTaker n2k | **0.805** | 0.558 | 0.695 | **1.3e-06 \*\*\*** | L20 (51%) | +0.011 | 0.37 ns | L20 (51%) |
+| ARC-Challenge | 0.708 | 0.732 | **0.790** | **5.8e-10 \*\*\*** | L39 (100%) | 0.000 | — | L39 (100%) |
+
+**Findings.**
+
+1. **The task law holds in a third family — 3 families × 6 models.**
+   RuleTaker → readout wins (now 5/6 models; DSV4 still the lone exception).
+   BoolQ → parity. ARC → loop wins in the low-accuracy regime (Granite readout
+   0.708 sits in the same regime as 0.6B/Mistral, and the loop wins again).
+2. **The strongest "knows more than it can say" cell in the campaign.**
+   Granite's RuleTaker readout (0.805) is the best of all six models —
+   **+13.3pt over its own loop.8 on the paired subset** (0.828 vs 0.695) —
+   despite Granite's loop being the *weakest* at its scale. The residual
+   readout extracts answers the verbal channel cannot produce.
+3. **Placement: BoolQ significant (+1.8pt **), RuleTaker flat, ARC never
+   plateaus.** Granite ARC is the campaign's clearest monotone-to-final curve
+   (L17 0.584 → L33 0.693 → L39 0.708): its world-knowledge readout is too
+   weak to saturate, so the tail keeps paying. Campaign tally: **9/18
+   significant placement wins, zero losses.**
+4. **Ladder verdict: fraction-invariance dead, absolute-layer clustering
+   alive.** BoolQ/RuleTaker onsets across the 4096-wide ladder: L16/L11
+   (32 deep) → L24/L24 (36 deep) → L17/L20 (40 deep) — a narrow absolute band
+   **L11–L24** with no monotone depth trend (fractions 52/35% → 69/69% →
+   44/51%). The verdict assembly point is a property of task + recipe, not of
+   fractional depth. ARC onset instead tracks readout saturation (DSV4: L22
+   at 0.951; Granite: L39 at 0.708).
+
+**Note (2026-08-11):** during smoke-artifact cleanup, an overly broad deletion
+pattern (`_v100` matching `_v1000`/`_v1170`) removed the RuleTaker/ARC
+full-run caches; both sweeps were rerun to regenerate them and replayed
+**bit-for-bit identical** (max sweep |Δ| = 0.0000), confirming run-to-run
+determinism at fixed batch/GPU/seed.
