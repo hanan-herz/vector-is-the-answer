@@ -568,10 +568,17 @@ def to_vecs(model, tok, texts, layer, batch=24, label=""):
         h.remove()
         hs = buf[0]
         # Last-real-token index and context mask off the ATTENTION MASK, not
-        # `ids != pad`: valid for left OR right padding (real tokens are
-        # contiguous in both; `ids != pad` silently breaks on left-pad).
+        # `ids != pad`: valid for left OR right padding. NON-OBVIOUS: the
+        # index itself must be padding-side-robust. `am.sum(1)-1` counts real
+        # tokens, which equals the last real token's INDEX only under right
+        # padding; under left padding (e.g. Granite's tokenizer default) it
+        # lands mid-prompt or on a pad token, silently extracting garbage
+        # vectors while the loop path (logits[:, -1]) stays healthy — this
+        # poisoned the first Granite-3.1-8B runs (Ext 17) as a flat
+        # 'dead readout' at every layer. `ids != pad` also breaks on
+        # left-pad. flip+argmax finds the last real position either way.
         am = enc["attention_mask"].cpu()
-        lens = am.long().sum(1) - 1
+        lens = am.shape[1] - 1 - am.flip(1).argmax(1)
         last_out.append(hs[torch.arange(hs.size(0)), lens])
         mean_out.append((hs * am.float().unsqueeze(-1)).sum(1)
                         / am.float().sum(1).unsqueeze(-1))
@@ -629,7 +636,9 @@ def to_vecs_multi(model, tok, texts, layers, batch=24, label=""):
                 h.remove()
 
         am = enc["attention_mask"].cpu()
-        lens = am.long().sum(1) - 1
+        # padding-side-robust last-real-token index — see the long note in
+        # to_vecs() above; `am.sum(1)-1` is wrong for left-padding tokenizers.
+        lens = am.shape[1] - 1 - am.flip(1).argmax(1)
         arange_cache = {}
         for l in layers:
             hs = bufs[l][0]
