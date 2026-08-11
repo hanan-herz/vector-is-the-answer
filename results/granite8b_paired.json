@@ -1,0 +1,30 @@
+{
+  "model": "ibm-granite/granite-3.1-8b-base",
+  "comparison": "readout.mlp vs loop.8 (paired, loop-val subset)",
+  "tasks": {
+    "boolq": {
+      "n": 405,
+      "readout_acc": 0.854320987654321,
+      "loop8_acc": 0.8641975308641975,
+      "b_readout_only": 19,
+      "c_loop_only": 23,
+      "mcnemar_p": 0.6439689563703723
+    },
+    "ruletaker": {
+      "n": 400,
+      "readout_acc": 0.8275,
+      "loop8_acc": 0.695,
+      "b_readout_only": 86,
+      "c_loop_only": 33,
+      "mcnemar_p": 1.266758571730809e-06
+    },
+    "arc": {
+      "n": 1165,
+      "readout_acc": 0.7107296137339055,
+      "loop8_acc": 0.7896995708154506,
+      "b_readout_only": 65,
+      "c_loop_only": 157,
+      "mcnemar_p": 5.781461057657231e-10
+    }
+  }
+}
