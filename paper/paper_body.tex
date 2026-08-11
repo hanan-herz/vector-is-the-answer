@@ -15,32 +15,32 @@ One-Pass Residual Readouts vs Fair Loop Scoring}}
 \maketitle
 
 \begin{abstract}
-On closed-set tasks whose answer is representable in a single forward pass, a
-small supervised head on a frozen residual stream is a competitive
-\emph{classifier} relative to the strongest closed-set use of the
-autoregressive loop. We fit heads to the final-token residual of six
-open-weight models (Qwen3-0.6B/4B/8B, Mistral-7B, Granite-3.1-8B,
-DeepSeek-V4-Flash) and compare them to a fairly-conditioned loop --- full
-context, balanced few-shot, scored by next-token log-probability over the
-same answer set --- matched on information access and scoring protocol, and
-budget-stress-tested at 0.6B (Ext~13; $k{\le}64$ at $4\times$ pad). We do
-\emph{not} compare against free-form or multi-step generation. On BoolQ (full
-validation), RuleTaker n2k (\emph{pilot}), and ARC-Challenge (full test), the
-one-pass \head{} matches or beats that closed-set scorer at nearly every
-scale: it wins significantly where the verbal channel is weakest (RuleTaker
-$+12.0$pt on Granite-8B, $+5.2$pt at 0.6B; BoolQ $+3.0$pt at 0.6B against the
-budget-max loop), is a \emph{statistical} tie at mid-scale BoolQ (numerical
-losses of ${\sim}$0.7--1.1pt, all non-significant), and loses in three ordered
-regimes --- small models on parametric knowledge (ARC), a frontier MoE on
-serial deduction (RuleTaker pilot at DeepSeek-V4), and Mistral-7B on BoolQ.
-The map survives label-shuffle nulls, random-projection selectivity,
-per-length deconfounds, and paired McNemar on identical rows. Sweeping the
-\head{} tap across depth, the verdict is assembled by mid-depth: the best
-mid-layer tap beats the final layer at 9 of 18 cells (6/18 after
-Benjamini--Hochberg) and never loses significantly. Operationally, on this
-task class the residual supports a classifier that matches the loop's
-closed-set scorer --- \textbf{the vector already has the answer} --- with the
-boundaries of that claim mapped rather than erased.
+On closed-set classification tasks, a single prompt forward pass is enough: a
+small supervised head on a frozen residual stream matches the strongest
+closed-set use of the autoregressive loop as a \emph{classifier}. We fit heads to the final-token
+residual of six open-weight models (Qwen3-0.6B/4B/8B, Mistral-7B,
+Granite-3.1-8B, DeepSeek-V4-Flash) and compare them to a fairly-conditioned
+loop --- full context, balanced few-shot, scored by next-token
+log-probability over the same answer set --- matched on information access
+and scoring protocol, and budget-stress-tested at 0.6B (Ext~13; $k{\le}64$ at
+$4\times$ pad). We do \emph{not} compare against free-form or multi-step
+generation. On BoolQ (full validation), RuleTaker n2k (\emph{pilot}), and
+ARC-Challenge (full test), the one-pass \head{} matches or beats that
+closed-set scorer at nearly every scale: it wins significantly where the
+verbal channel is weakest (RuleTaker $+12.0$pt on Granite-8B, $+5.2$pt at
+0.6B; BoolQ $+3.0$pt at 0.6B against the budget-max loop), is a
+\emph{statistical} tie at mid-scale BoolQ (numerical losses of
+${\sim}$0.7--1.1pt, all non-significant), and loses in three ordered regimes
+--- small models on parametric knowledge (ARC), a frontier MoE on serial
+deduction (RuleTaker pilot at DeepSeek-V4), and Mistral-7B on BoolQ. The map
+survives label-shuffle nulls, random-projection selectivity, per-length
+deconfounds, and paired McNemar on identical rows. Sweeping the \head{} tap
+across depth, the verdict is assembled by mid-depth: the best mid-layer tap
+beats the final layer at 9 of 18 cells (6/18 after Benjamini--Hochberg) and
+never loses significantly. Operationally, on this task class the residual
+supports a classifier that matches the loop's closed-set scorer ---
+\textbf{the vector already has the answer} --- with the boundaries of that
+claim mapped rather than erased.
 \end{abstract}
 
 \section{Introduction}
@@ -52,10 +52,11 @@ vector; the answer a model \emph{would} give is thus a particular linear read
 of a vector that exists, in full, after a single forward pass --- and our own
 linear probes sit within a few points of the MLP everywhere
 (\S\ref{sec:boolq}). This paper asks
-a sharp, falsifiable question about that vector: \textbf{on tasks whose answer
-can be represented in one forward pass, does a small \head{} head fit to the
-frozen residual recover the answer --- and does the autoregressive loop add
-anything such a \head{} lacks?}
+a sharp, falsifiable question about that vector: \textbf{on closed-set
+classification with a fixed answer set, does a single prompt forward pass
+already carry the answer --- recoverable by a small \head{} head on the frozen
+residual --- or does the autoregressive loop add something such a \head{}
+lacks?}
 
 The question is easy to answer sloppily. A probe that beats a zero-shot prompt
 has shown little: zero-shot understates the loop, and a token-probability
@@ -147,7 +148,7 @@ where noted we sweep $k$ up to 64 with a $4\times$ pad budget (Ext~13).
 a chain-of-thought loop that generates intermediate tokens before answering.
 Generated-then-answered chains are a different readout, break the matched
 closed-set scoring protocol, and --- on a serial task such as RuleTaker ---
-are not one-pass-representable by construction; they are out of scope for the
+require intermediate generation by construction; they are out of scope for the
 matched comparison.
 
 \subsection{Matching requirements}
@@ -203,8 +204,8 @@ tag in cache keys after the Ext~15 cache-identity incident.
 \label{sec:boolq}
 
 BoolQ \citep{clark2019boolq} is binary reading comprehension with the gold
-answer grounded in a passage --- the cleanest case of a one-pass-representable
-task. We load the standard Hugging Face release (\texttt{google/boolq}) and
+answer grounded in a passage --- the cleanest closed-set case in which to test
+whether one prompt forward pass already carries the label. We load the standard Hugging Face release (\texttt{google/boolq}) and
 use the full validation split (9427 train / 3270 val).
 
 \subsection{Headline}
@@ -460,11 +461,11 @@ but is underpowered to fix its location.
 \section{Discussion}
 \label{sec:discussion}
 
-\textbf{The thesis, in its conditional form.} On closed-set,
-one-pass-representable tasks, a small head on the frozen residual matches a
-fair autoregressive classifier --- so the answer is already in the vector.
-This is a measurement, not a metaphysics: we do not claim the loop never
-computes, and we identify the three regimes where it does
+\textbf{The thesis, in its conditional form.} On closed-set classification
+with a fixed answer set, a single prompt forward pass is enough: a small head
+on the frozen residual matches a fair autoregressive classifier, so the answer
+is already in the vector. This is a measurement, not a metaphysics: we do not
+claim the loop never computes, and we identify the three regimes where it does
 (\S\ref{sec:boundary}).
 
 \textbf{The residual supports a competitive closed-set classifier.} The
@@ -530,9 +531,11 @@ a proposal.
   persisted for campaign runs; the two oldest headline runs (Ext~8/9) predate
   head persistence. MoE active-param FLOPs are unmeasured
   (Table~\ref{tab:cost}).
-\item \textbf{Scope}: closed-set, one-pass-representable tasks only. The loop
-  baseline is a scoring classifier, not chain-of-thought generation. No claim
-  transfers to open-ended decoding.
+\item \textbf{Scope}: closed-set classification with a fixed answer set
+  (Yes/No, A--D). The loop baseline is a scoring classifier, not
+  chain-of-thought or free-form generation. No claim transfers to open-ended
+  decoding; the finding is that one prompt forward pass \emph{suffices} for
+  this class, not that every task is one-pass.
 \end{itemize}
 
 \section{Related Work}
@@ -595,10 +598,11 @@ different goal.
 
 \section{Conclusion}
 
-On closed-set, one-pass-representable tasks, a small \head{} head fit to the
-frozen residual recovers the answer without generating tokens --- and matches
-the strongest \emph{closed-set scoring} use of the autoregressive loop across
-the space we measured. Three loop-win \emph{regimes} remain: a frontier MoE
+On closed-set classification with a fixed answer set, a single prompt forward
+pass is enough: a small \head{} head fit to the frozen residual recovers the
+answer without generating tokens --- and matches the strongest
+\emph{closed-set scoring} use of the autoregressive loop across the space we
+measured. Three loop-win \emph{regimes} remain: a frontier MoE
 on serial deduction (RuleTaker pilot at DeepSeek-V4), Mistral-7B on BoolQ,
 and a small-model parametric gap (ARC) that closes with scale; elsewhere the
 loop's edges are statistical ties (four of six BoolQ cells within
