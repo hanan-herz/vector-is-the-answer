@@ -1,0 +1,15 @@
+{
+  "reports": [
+    {
+      "pair": "readout.mlp.L16 vs readout.mlp.L31",
+      "a": "readout.mlp.L16",
+      "b": "readout.mlp.L31",
+      "acc_a": 0.8633792048929664,
+      "acc_b": 0.8408256880733945,
+      "diff": 0.02255351681957185,
+      "b_a_only": 205,
+      "c_b_only": 133,
+      "mcnemar_p": 0.00011251282020686069
+    }
+  ]
+}

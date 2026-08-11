@@ -1,14 +1,14 @@
-"""Readout probe-placement sweeps — full 3 x 4 matrix (Ext 14/15).
+"""Readout probe-placement sweeps — full 3 x 6 matrix (Ext 14/15/16/17).
 
 Grid: rows = task (BoolQ / RuleTaker n2k / ARC-Challenge), cols = model
-(Qwen3-0.6B / 4B / 8B / DeepSeek-V4-Flash). One-pass readout accuracy as a
-function of the residual-stream layer the verdict head taps. Paired-McNemar
-annotation (best tap vs final layer) where a *_paired.json exists; the
-final-layer readout (last.mlp) is drawn as a diamond when it is not itself
-a swept layer (e.g. 0.6B ARC). Loop arms are horizontal references (best
-loop arm present in the run + loop.zero).
+(Qwen3-0.6B / 4B / 8B / Mistral-7B / Granite-3.1-8B / DeepSeek-V4-Flash).
+One-pass readout accuracy as a function of the residual-stream layer the
+verdict head taps. Paired-McNemar annotation (best tap vs final layer) where
+a *_paired.json exists; the final-layer readout (last.mlp) is drawn as a
+diamond when it is not itself a swept layer. Loop arms are horizontal
+references (best loop arm present in the run + loop.zero).
 
-Inputs:  results/{boolq,ruletaker,arc}_layersweep_{06b,4b,8b,dsv4}.json
+Inputs:  results/{boolq,ruletaker,arc}_layersweep_{06b,4b,8b,mistral7b,granite8b,dsv4}.json
          (+ matching _paired.json where present)
 Output:  layersweep_placement.png
 """
@@ -23,8 +23,9 @@ COL_LIN = "#7f7f7f"
 COL_LOOP = "#1f77b4"
 
 TASKS = ["boolq", "ruletaker", "arc"]
-MODELS = [("06b", "Qwen3-0.6B"), ("4b", "Qwen3-4B"),
-          ("8b", "Qwen3-8B"), ("dsv4", "DeepSeek-V4")]
+MODELS = [("06b", "Qwen3-0.6B"), ("4b", "Qwen3-4B"), ("8b", "Qwen3-8B"),
+          ("mistral7b", "Mistral-7B"), ("granite8b", "Granite-3.1-8B"),
+          ("dsv4", "DeepSeek-V4")]
 TASK_TITLE = {"boolq": "BoolQ", "ruletaker": "RuleTaker n2k",
               "arc": "ARC-Challenge"}
 
@@ -37,7 +38,7 @@ def sig_stars(p):
     return "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else "ns"
 
 
-fig, axes = plt.subplots(len(TASKS), len(MODELS), figsize=(19.0, 12.5))
+fig, axes = plt.subplots(len(TASKS), len(MODELS), figsize=(26.0, 12.5))
 
 for row, task in enumerate(TASKS):
     for col, (tag, model) in enumerate(MODELS):
@@ -116,12 +117,15 @@ for row, task in enumerate(TASKS):
         ax.set_title(f"{model} · {TASK_TITLE[task]}", fontsize=10)
         ax.set_xticks(L)
         ref_lo = [acc(d[k]) for k in loop_keys] + list(lin)
-        ax.set_ylim(min(ref_lo) - 0.02, max(mlp.max(), last_mlp) + 0.05)
+        ref_lo = [acc(d[k]) for k in loop_keys] + list(lin)
+        ref_hi = [acc(d[k]) for k in loop_keys]
+        ax.set_ylim(min(ref_lo) - 0.02,
+                    max(list(ref_hi) + [mlp.max(), last_mlp]) + 0.03)
         ax.grid(True, axis="y", ls=":", alpha=0.5)
         if row == 0:
             ax.legend(fontsize=7, loc="upper left", framealpha=0.9)
 
-fig.suptitle("Readout placement sweeps (all batch 8) — mid-depth taps significantly beat the final layer at 6/12 cells,\n"
+fig.suptitle("Readout placement sweeps (all batch 8) — mid-depth taps significantly beat the final layer at 9/18 cells,\n"
              "never lose significantly; shaded band = plateau onset (first layer within 1pt of the final-layer readout)",
              fontsize=12.5, y=1.01)
 fig.tight_layout()
