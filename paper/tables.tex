@@ -15,17 +15,23 @@
 
 \begin{table*}[t]
 \centering
-\caption{\textbf{One-pass residual readout vs.\ fair AR loop} (accuracy).
-Readout: MLP on frozen final residual (per-seed mean). Loop: closed-set
-next-token log-prob, full context, balanced few-shot. loop.0 / loop.8 =
-zero- / 8-shot; \emph{best loop} = stronger arm ($k$ in parentheses; RT 0.6B
-and ARC DSV4 prefer zero-shot). $\Delta=$ readout $-$ best loop on identical
-rows ($\Delta{>}0$ = readout wins; best-of makes $\Delta$ conservative).
-Paired McNemar ($^{\ast}p{<}0.05$, $^{\ast\ast}p{<}0.01$,
-$^{\ast\ast\ast}p{<}0.001$).
+\caption{\textbf{One-pass residual readout vs.\ fair AR closed-set scorer}
+(accuracy). Readout: MLP on frozen final residual (\emph{per-seed mean};
+identical final-layer numbers as Tables~\ref{tab:placement}
+and~\ref{tab:controls}). Loop: next-token log-prob over the closed answer
+set, full context, balanced few-shot --- not free-form generation. loop.0 /
+loop.8 = zero- / 8-shot; \emph{best loop} = stronger arm ($k$ in
+parentheses; RT 0.6B and ARC DSV4 prefer zero-shot). $\Delta=$ readout $-$
+best loop (best-of makes $\Delta$ conservative). Paired McNemar on
+identical rows using 4-seed vote preds (mean--vote $\le$0.9pt; never flips
+sig/ns). Stars mark \emph{uncorrected} $p$
+($^{\ast}p{<}0.05$, $^{\ast\ast}p{<}0.01$, $^{\ast\ast\ast}p{<}0.001$);
+all 11 raw-significant cells remain significant under Benjamini--Hochberg
+FDR at $q{<}0.05$ across the 18 cells.
 \textsuperscript{a}BoolQ val 3270; Qwen $k{\le}64$ pad 8192, else $k{=}8$
 pad 2048.
-\textsuperscript{b}RuleTaker n2k val 1000.
+\textsuperscript{b}RuleTaker n2k pilot, val 1000 (same rows for readout and
+loop).
 \textsuperscript{c}ARC-Challenge test 1165, $k{=}8$.}
 \label{tab:main}
 \small
@@ -45,8 +51,8 @@ Task & Model & Readout & loop.0 & loop.8 & best loop & $\Delta$ (readout $-$ loo
 \midrule
 \multirow{6}{*}{RuleTaker n2k\textsuperscript{b}}
  & Qwen3-0.6B & \textbf{0.650} & 0.598 & 0.587 & 0.598\,(zero) & \sd{+0.052}\pstarstar & 0.004 \\
- & Qwen3-4B   & \textbf{0.748} & 0.679 & 0.703 & 0.703\,(8) & \sd{+0.045}\pstarstar & 0.005 \\
- & Qwen3-8B   & \textbf{0.761} & 0.666 & 0.729 & 0.729\,(8) & $+0.032$ & 0.056 \\
+ & Qwen3-4B   & \textbf{0.744} & 0.679 & 0.703 & 0.703\,(8) & \sd{+0.041}\pstarstar & 0.005 \\
+ & Qwen3-8B   & \textbf{0.758} & 0.666 & 0.729 & 0.729\,(8) & $+0.029$ & 0.056 \\
  & Mistral-7B & \textbf{0.643} & 0.517 & 0.571 & 0.571\,(8) & \sd{+0.072}\pstarstarstar & $8.4\mathrm{e}{-04}$ \\
  & Granite-3.1-8B & \textbf{0.805} & 0.554 & 0.685 & 0.685\,(8) & \sd{+0.120}\pstarstarstar & $6.5\mathrm{e}{-12}$ \\
  & DeepSeek-V4-Flash & 0.765 & 0.603 & 0.803 & \textbf{0.803}\,(8) & \sd{$-0.038$}\pstarstar & 0.009 \\
@@ -73,7 +79,8 @@ indices. \emph{Plateau onset} = first swept layer within
 assembled from there on; at DeepSeek-V4 this happens by L22/42 (52\% depth)
 on \emph{all three tasks}, with ARC showing the sharpest snap-in
 (near-chance at L15 $\to$ 0.944 at L22). Mid-depth taps win significantly at
-9/18 cells and never lose significantly.}
+9/18 cells raw (6/18 after Benjamini--Hochberg FDR at $q{<}0.05$) and never
+lose significantly.}
 \label{tab:placement}
 \small
 \setlength{\tabcolsep}{3.5pt}%

@@ -1,7 +1,8 @@
-% The Vector Is the Answer? — main paper (arXiv preprint). Authoritative
-% single-column source. Numbers: RESULTS.md (Ext 8–17).
-% Body: paper_body.tex. Tables: tables.tex.
-% Build: tectonic paper/paper.tex
+% Anonymous build of the paper (no author name/email, no acknowledgments).
+% Shares body/tables/refs with paper.tex. Build from this directory:
+%   tectonic paper_anonymous.tex
+% Output: paper_anonymous.pdf
+\def\AnonymousVersion{}
 \documentclass[11pt]{article}
 \usepackage[margin=1in]{geometry}
 \usepackage{booktabs}
@@ -15,10 +16,13 @@
 \usepackage{newtxtext}
 \usepackage[dvipsnames]{xcolor}
 \usepackage{hyperref}
-% Captions at small so long table notes stay readable.
 \captionsetup{font=small,labelfont=bf}
 \captionsetup[table]{font=small,labelfont=bf}
-\hypersetup{colorlinks=true,linkcolor=black,citecolor=NavyBlue,urlcolor=NavyBlue}
+\hypersetup{
+  colorlinks=true,linkcolor=black,citecolor=NavyBlue,urlcolor=NavyBlue,
+  pdfauthor={},
+  pdftitle={The Vector Is the Answer? One-Pass Residual Readouts vs Fair Loop Scoring},
+}
 
 \newcommand{\sd}[1]{\textbf{#1}}
 \newcommand{\pstar}{$^{*}$}
