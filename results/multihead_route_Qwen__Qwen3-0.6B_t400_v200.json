@@ -12,9 +12,9 @@
       "arc"
     ],
     "heads": {
-      "boolq": "/Users/hanan/projects/llm-as-latent-only/results/head_Qwen_Qwen3-0.6B_l27.npz",
-      "ruletaker": "/Users/hanan/projects/llm-as-latent-only/cloud_bench_cache/Qwen__Qwen3-0.6B/ruletaker/heads/head_l27.npz",
-      "arc": "/Users/hanan/projects/llm-as-latent-only/cloud_bench_cache/Qwen__Qwen3-0.6B/arc/heads/head_l27.npz"
+      "boolq": "results/head_Qwen_Qwen3-0.6B_l27.npz",
+      "ruletaker": "cloud_bench_cache/Qwen__Qwen3-0.6B/ruletaker/heads/head_l27.npz",
+      "arc": "cloud_bench_cache/Qwen__Qwen3-0.6B/arc/heads/head_l27.npz"
     },
     "chance_task_acc": 0.3333333333333333
   },

@@ -23,8 +23,8 @@
     ],
     "loop_pad_max": 2048,
     "pad_max": 384,
-    "artifact_root": "/Users/hanan/projects/llm-as-latent-only/cloud_bench_cache",
-    "task_dir": "/Users/hanan/projects/llm-as-latent-only/cloud_bench_cache/Qwen__Qwen3-0.6B/arc",
+    "artifact_root": "cloud_bench_cache",
+    "task_dir": "cloud_bench_cache/Qwen__Qwen3-0.6B/arc",
     "artifact_layout": "model_slug/task/v1",
     "task": "arc",
     "hf_id": "allenai/ai2_arc",
@@ -55,9 +55,9 @@
     "filter": "4-choice A-D only",
     "finished_at": "2026-08-09T16:35:11",
     "head_file": "heads/head_l27.npz",
-    "run_file": "/Users/hanan/projects/llm-as-latent-only/cloud_bench_cache/Qwen__Qwen3-0.6B/arc/runs/20260809T162709_39b778.json",
+    "run_file": "cloud_bench_cache/Qwen__Qwen3-0.6B/arc/runs/20260809T162709_39b778.json",
     "run_file_rel": "runs/20260809T162709_39b778.json",
-    "latest_file": "/Users/hanan/projects/llm-as-latent-only/cloud_bench_cache/Qwen__Qwen3-0.6B/arc/latest.json"
+    "latest_file": "cloud_bench_cache/Qwen__Qwen3-0.6B/arc/latest.json"
   },
   "last.linear": 0.4394849785407725,
   "last.linear.max": 0.5072961373390558,
