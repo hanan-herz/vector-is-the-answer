@@ -64,11 +64,13 @@ Reported figures: `python plot_boolq.py`, `plot_head_to_head.py`,
 | `RESULTS.md` | Narrative results index |
 | `cloud/` | Optional Modal serving helpers (no secrets) |
 
-## License / citation
+## License
 
-Code and results: use freely with attribution (add a formal `LICENSE` if you
-need a specific SPDX). Cite the PDF once arXiv-assigned; until then cite this
-repository and the title above.
+Code, data, and manuscript: CC BY 4.0 (attribution required).
+See [`LICENSE`](LICENSE).
+
+Cite the PDF once arXiv-assigned; until then cite this repository and the
+title above.
 
 ```
 Herzog, H. The Vector Is the Answer? One-Pass Residual Readouts vs Fair Loop Scoring.
