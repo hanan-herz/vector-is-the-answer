@@ -46,4 +46,6 @@ paper/*.fls
 paper/*.synctex.gz
 paper/*.bbl
 paper/*.blg
-paper/*.md|paper/CHANGES.md|paper/arxiv_src.tar.gz
+paper/*.md
+paper/CHANGES.md
+paper/arxiv_src.tar.gz
