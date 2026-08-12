@@ -7,7 +7,7 @@ log-prob over a closed answer set — Yes/No or A–D — a real classifier read
 greedy decode) on public closed-form tasks. Primary: **BoolQ** (full val).
 Second: **RuleTaker** n2k (Ext 11) for serial-depth strata. Third: **ARC-
 Challenge** full (Ext 12) for **parametric science knowledge** (no passage).
-Harness: `bench.py`. Interpretation / pitch: `implications.md`.
+Harness: `bench.py`. Preprint: [`paper/paper.pdf`](paper/paper.pdf).
 Synthetic mechanism experiments: `RESULTS_SYNTHETIC.md`.
 
 ## Headline table
@@ -43,7 +43,7 @@ makes this statistical: with the loop given 64 balanced exemplars and a
 Regenerate with `python plot_boolq.py` (reads all numbers from
 `results/*.json`).*
 
-*Plot path:* `/Users/hanan/Projects/llm-as-latent-only/paper/figures/boolq_results.png`
+*Plot path:* `paper/figures/boolq_results.png`
 
 Two controls recur throughout: **randproj** (a random-Gaussian-projected linear
 head ≈ the full readout ⇒ the signal is *diffuse*, no privileged subspace) and
@@ -248,13 +248,13 @@ inflated loop.8 at 4B/8B (0.928/0.915, ghost caches) and a stale 0.625 at 0.6B.
 
 ![RuleTaker n2k overall + depth](paper/figures/ruletaker_depth_strata.png)
 
-*Plot path:* `/Users/hanan/Projects/llm-as-latent-only/paper/figures/ruletaker_depth_strata.png`
+*Plot path:* `paper/figures/ruletaker_depth_strata.png`
 
 ![BoolQ · RuleTaker · ARC head-to-head](paper/figures/head_to_head_three_tasks.png)
 
 *Plot paths:*
-- `/Users/hanan/Projects/llm-as-latent-only/paper/figures/head_to_head_three_tasks.png`
-- `/Users/hanan/Projects/llm-as-latent-only/paper/figures/head_to_head_boolq_ruletaker.png` (same 3-panel figure; legacy name)
+- `paper/figures/head_to_head_three_tasks.png`
+- `paper/figures/head_to_head_boolq_ruletaker.png` (same 3-panel figure; legacy name)
 
 ## Ext 12 — ARC-Challenge full, multi-model (`bench.py --task arc`)
 
@@ -286,7 +286,7 @@ Also under `cloud_bench_cache/{slug}/arc/runs/{run_id}.json`. Prefer `runs/` or
 `results/` over `latest.json` (last-writer pointer; empty promote race hit DSV4
 once — shelf was filled from the run file).
 
-Plot: `/Users/hanan/Projects/llm-as-latent-only/paper/figures/arc_results.png`  
+Plot: `paper/figures/arc_results.png`  
 Regenerate: `python plot_arc.py`.
 
 ### Overall (full test, matched loop rows)

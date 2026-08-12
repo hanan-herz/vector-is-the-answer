@@ -16,11 +16,16 @@ ROUTER = "https://openrouter.ai/api/v1/chat/completions"
 
 
 def read_key():
-    p = os.path.expanduser("~/.grok/config.toml")
-    for line in open(p):
-        if "api_key" in line:
-            return line.split("=", 1)[1].strip().strip('"').strip("'")
-    raise SystemExit("no api_key in ~/.grok/config.toml")
+    """Prefer OPENROUTER_API_KEY; fall back to local ~/.grok/config.toml (not in repo)."""
+    env = os.environ.get("OPENROUTER_API_KEY") or os.environ.get("OPENROUTER_KEY")
+    if env:
+        return env.strip()
+    cfg = os.path.expanduser("~/.grok/config.toml")
+    if os.path.isfile(cfg):
+        for line in open(cfg):
+            if "api_key" in line:
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    raise SystemExit("set OPENROUTER_API_KEY or put api_key in ~/.grok/config.toml")
 
 
 def fmt_example(r):

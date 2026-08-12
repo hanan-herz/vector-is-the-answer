@@ -1,16 +1,43 @@
+# --- runtime / caches ---
 __pycache__/
+*.py[cod]
+_modal
 _modal/
 .modal/
+.claude/
 cloud_bench_cache/
 results_4b_residuals/
 results.json
 *.log
+logs/
 weights/
-
-# macOS
 .DS_Store
 
-# LaTeX / paper build intermediates
+# --- secrets / local config (never commit) ---
+.env
+.env.*
+*.pem
+credentials.json
+
+# --- private / personal / sparring (not for public surface) ---
+feedback.txt
+feedback2.txt
+NOTES.md
+EXERCISE.md
+PUBLISHING_PLAN.md
+seed.md
+modal-notes.md
+thoughts-transcript.txt
+implications.md
+implications.pdf
+llm-as-latent-only.md
+llm-as-latent-only.pdf
+paper/endorsement-request.txt
+paper/how-we-differ-belinkov.md
+paper/AI-IGNORE
+paper/repo-groom.txt
+
+# --- LaTeX build intermediates ---
 paper/*.aux
 paper/*.out
 paper/*.log
