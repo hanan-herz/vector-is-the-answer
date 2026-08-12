@@ -125,7 +125,7 @@ image = (
     .add_local_dir(HERE, "/root/bench", ignore=_modal_ignore)
 )
 
-modal_app = modal.App("llm-as-latent-only-bench")
+modal_app = modal.App("vector-is-the-answer-bench")
 
 VOLUME_MOUNT = "/data"
 bench_volume = modal.Volume.from_name(BENCH_VOLUME_NAME, create_if_missing=True)

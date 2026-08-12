@@ -5,12 +5,14 @@ _modal
 _modal/
 .modal/
 .claude/
+.venv/
 cloud_bench_cache/
 results_4b_residuals/
 results.json
 *.log
 logs/
 weights/
+docgen/
 .DS_Store
 
 # --- secrets / local config (never commit) ---

@@ -1,5 +1,12 @@
 # Results — one-pass readout vs the autoregressive loop
 
+> **Canonical numbers for the public paper** live in
+> [`paper/tables.tex`](paper/tables.tex) and are checked by
+> `python scripts/verify_tables.py` (Scheme A: best-of loop arms).
+> This file is a **narrative index** of runs and extensions; some headline
+> tables below use older framing (e.g. BoolQ-only, fixed `loop.8` rather than
+> best-of loop). Prefer the paper tables when numbers disagree.
+
 The headline experiment: a **one-pass readout of the frozen final residual**
 (`embedding × head`, zero generated tokens) vs a **fairly-conditioned
 autoregressive loop** (full context, balanced few-shot, scored by next-token

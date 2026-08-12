@@ -3,7 +3,7 @@
 Mechanism experiments on synthetic tasks (multi-hop transitivity, arithmetic,
 semantic roles, closed-set extraction, latent-loop drift). Small-n (700 train /
 175 val unless noted). For the externally-validated headline see `RESULTS.md`
-(BoolQ, up to 9427/3270); interpretation and pitch in `implications.md`.
+(BoolQ, up to 9427/3270). Interpretation notes are private and not in this repo.
 
 Code: `probe_main.py` (transitivity), `matched.py` / `boundary.py` /
 `add_verify.py` / `semantic.py` (Exp 5), `extract.py` (Exp 6), `drift.py`

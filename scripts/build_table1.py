@@ -41,6 +41,10 @@ SLUG = {
 # loop_val source when the readout run and the full-val loop run differ
 # (BoolQ Mistral/Granite: layersweep has the readout+placement, the *_rerun
 # file has the full-3270 loop). Otherwise loop_json == run_json.
+#
+# For paper Table 1 verification, prefer scripts/verify_tables.py CELLS
+# (Scheme A / paper/tables.tex). This builder's RuleTaker rows use n2k pilot
+# JSONs; verify_tables uses layersweep paths for those cells.
 CELLS = [
     ("BoolQ", "Qwen3-0.6B", "boolq_budget_06b.json", None),
     ("BoolQ", "Qwen3-4B", "boolq_budget_4b.json", None),

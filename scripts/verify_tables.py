@@ -33,6 +33,10 @@ import re
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RES = os.path.join(ROOT, "results")
 
+# Authoritative CELLS map for paper Table 1 (Scheme A / paper/tables.tex).
+# Note: scripts/build_table1.py uses a related but not identical map for some
+# RuleTaker cells (n2k pilot JSONs vs layersweep). Prefer this file when
+# checking paper numbers.
 # (Task, model, run_json, k_arm). k_arm is what loop.k reports.
 CELLS = [
     # BoolQ -- budget runs carry the k<=64 sweep (pad 8192)

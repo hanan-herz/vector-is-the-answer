@@ -1,0 +1,14 @@
+# Core deps for local verify / table rebuild (CPU-friendly).
+# Full re-runs also need a GPU or Modal; cloud image pins live in bench.py.
+torch
+transformers>=4.46
+datasets
+scikit-learn
+numpy
+scipy
+matplotlib
+accelerate
+sentencepiece
+protobuf
+requests
+# modal  # optional, for cloud re-runs
