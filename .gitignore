@@ -51,3 +51,4 @@ paper/*.blg
 paper/*.md
 paper/CHANGES.md
 paper/arxiv_src.tar.gz
+.venv-runpod
