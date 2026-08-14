@@ -1,4 +1,4 @@
-"""RuleTaker n2k depth plot: per-depth MLP + loop when ``stratum_depth_loop`` exists.
+"""RuleTaker 10k/4k depth plot: per-depth MLP + loop when ``stratum_depth_loop`` exists.
 
 Skips missing artifacts. Saves ruletaker_depth_strata.png.
 """
@@ -14,10 +14,10 @@ import matplotlib.pyplot as plt
 ROOT = Path(__file__).resolve().parent
 
 ARTIFACTS = [
-    ("Qwen3-0.6B", "results/ruletaker_qwen06b_n2k.json"),
-    ("Qwen3-4B", "results/ruletaker_qwen4b_n2k.json"),
-    ("Qwen3-8B", "results/ruletaker_qwen8b_n2k.json"),
-    ("DeepSeek-V4", "results/ruletaker_dsv4_n2k.json"),
+    ("Qwen3-0.6B", "results/ruletaker_qwen06b_n10k.json"),
+    ("Qwen3-4B", "results/ruletaker_qwen4b_n10k.json"),
+    ("Qwen3-8B", "results/ruletaker_qwen8b_n10k.json"),
+    ("DeepSeek-V4", "results/ruletaker_dsv4_n10k.json"),
 ]
 
 DEPTH_ORDER = ["0", "1", "2", "3", "5", "NatLang"]
@@ -119,7 +119,7 @@ def main():
     ax0.set_ylim(0.45, 1.0)
     ax0.set_ylabel("Accuracy")
     ax0.set_title(
-        "RuleTaker n2k — overall (train 2000 · val 1000 · loop 1000, identical rows)",
+        "RuleTaker 10k/4k — overall (train 10000 · val 4000 · loop 4000, identical rows)",
         fontsize=11,
     )
     ax0.legend(fontsize=8, loc="lower right", ncol=2)
@@ -161,7 +161,7 @@ def main():
     ax1.text(
         0.5, -0.18,
         "loop_zero omitted from depth panel for clarity; overall bars include it. "
-        "Depth n is among the full val 1000 (identical rows for mlp and loop).",
+        "Depth n is among the full val 4000 (identical rows for mlp and loop).",
         transform=ax1.transAxes, ha="center", fontsize=8, color="#444",
     )
 

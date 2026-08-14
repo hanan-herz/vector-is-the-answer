@@ -1,6 +1,6 @@
 """Readout probe-placement sweeps — full 3 x 6 matrix (Ext 14/15/16/17).
 
-Grid: rows = task (BoolQ / RuleTaker n2k / ARC-Challenge), cols = model
+Grid: rows = task (BoolQ / RuleTaker / ARC-Challenge), cols = model
 (Qwen3-0.6B / 4B / 8B / Mistral-7B / Granite-3.1-8B / DeepSeek-V4-Flash).
 One-pass readout accuracy as a function of the residual-stream layer the
 verdict head taps. Paired-McNemar annotation (best tap vs final layer) where
@@ -26,7 +26,7 @@ TASKS = ["boolq", "ruletaker", "arc"]
 MODELS = [("06b", "Qwen3-0.6B"), ("4b", "Qwen3-4B"), ("8b", "Qwen3-8B"),
           ("mistral7b", "Mistral-7B"), ("granite8b", "Granite-3.1-8B"),
           ("dsv4", "DeepSeek-V4")]
-TASK_TITLE = {"boolq": "BoolQ", "ruletaker": "RuleTaker n2k",
+TASK_TITLE = {"boolq": "BoolQ", "ruletaker": "RuleTaker",
               "arc": "ARC-Challenge"}
 
 

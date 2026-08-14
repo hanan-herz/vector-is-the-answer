@@ -1,0 +1,121 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = []
+# ///
+"""sync — pull bench-results model trees into cloud_bench_cache, one dir at a time.
+
+Skips hf_home / dev / multihead / contractnli. Default dest is the repo
+cloud_bench_cache (same layout as Modal /data).
+
+  scripts/sync                  # all model/task dirs
+  scripts/sync --dry-run
+  scripts/sync --cache-only     # only */cache/
+  scripts/sync Qwen__Qwen3-8B   # one model (all its tasks)
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+import time
+
+VOL = "bench-results"
+MODAL = shutil.which("modal") or "modal"
+SKIP = frozenset({"hf_home", "dev", "multihead", "contractnli"})
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CACHE_DIR = os.environ.get(
+    "BENCH_CACHE_DIR", os.path.join(ROOT, "cloud_bench_cache"))
+
+
+def _run(args: list[str]) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [MODAL, "volume", *args], capture_output=True, text=True)
+
+
+def ls(vol: str, path: str) -> list[dict]:
+    p = _run(["ls", "--json", vol, path or "/"])
+    if p.returncode != 0:
+        return []
+    return json.loads(p.stdout)
+
+
+def names(vol: str, path: str, typ: str) -> list[str]:
+    out = []
+    for e in ls(vol, path):
+        name = e.get("filename") or ""
+        base = name.rstrip("/").split("/")[-1]
+        if e.get("type") == typ and base:
+            out.append(base)
+    return sorted(out)
+
+
+def pull(vol: str, remote: str, dest_parent: str) -> None:
+    os.makedirs(dest_parent, exist_ok=True)
+    p = _run(["get", vol, remote, dest_parent, "--force"])
+    base = remote.rstrip("/").split("/")[-1]
+    target = os.path.join(dest_parent, base)
+    if p.returncode != 0 or not (os.path.isdir(target) or os.path.isfile(target)):
+        err = (p.stderr or p.stdout or "").strip() or "get produced nothing"
+        raise RuntimeError(f"{remote}: {err}")
+
+
+def plan(vol: str, models: list[str], dest_root: str,
+         cache_only: bool) -> list[tuple[str, str]]:
+    jobs: list[tuple[str, str]] = []
+    if not models:
+        models = [m for m in names(vol, "/", "dir") if m not in SKIP]
+    for model in models:
+        tasks = names(vol, model, "dir")
+        if not tasks:
+            jobs.append((model, dest_root))
+            continue
+        for task in tasks:
+            remote = f"{model}/{task}"
+            dest = os.path.join(dest_root, model)
+            if cache_only:
+                remote = f"{remote}/cache"
+                dest = os.path.join(dest_root, model, task)
+            jobs.append((remote, dest))
+    return jobs
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("models", nargs="*", help="model slugs (default: all)")
+    ap.add_argument("--vol", default=VOL)
+    ap.add_argument("-d", "--dest", default=CACHE_DIR,
+                    help="local root (default: cloud_bench_cache)")
+    ap.add_argument("--cache-only", action="store_true")
+    ap.add_argument("--dry-run", action="store_true")
+    args = ap.parse_args()
+    dest_root = os.path.abspath(args.dest)
+    jobs = plan(args.vol, args.models, dest_root, args.cache_only)
+    if not jobs:
+        sys.exit("nothing to sync")
+    print(f"[sync] {len(jobs)} dir(s) -> {dest_root}", flush=True)
+    failed = 0
+    t0 = time.time()
+    for i, (remote, dest) in enumerate(jobs, 1):
+        print(f"[sync] {i}/{len(jobs)}  {remote}", flush=True)
+        if args.dry_run:
+            continue
+        t = time.time()
+        try:
+            pull(args.vol, remote, dest)
+        except Exception as e:
+            print(f"FAIL  {remote}: {e}", file=sys.stderr, flush=True)
+            failed += 1
+            continue
+        print(f"ok    {remote}  ({time.time() - t:.0f}s)", flush=True)
+    print(f"[sync] done {len(jobs) - failed}/{len(jobs)} in {time.time() - t0:.0f}s",
+          flush=True)
+    sys.exit(1 if failed else 0)
+
+
+if __name__ == "__main__":
+    main()

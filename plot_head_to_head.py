@@ -1,4 +1,4 @@
-"""Head-to-head: BoolQ (full-val) · RuleTaker (n2k) · ARC-Challenge (full).
+"""Head-to-head: BoolQ (full-val) · RuleTaker (10k/4k) · ARC-Challenge (full).
 
 Same six models, same three bars:
   readout (last.mlp, per-seed mean) · loop.zero · best loop
@@ -9,7 +9,7 @@ as scripts/build_table1.py) — readout.mean, loop.zero, and the best loop arm
 
 Protocols differ by design —
   BoolQ:      train 9427 / val 3270 / loop 3270
-  RuleTaker:  train 2000 / val 1000 / loop 1000  (n2k pilot)
+  RuleTaker:  train 10000 / val 4000 / loop 4000  (10k/4k)
   ARC:        train 1117 / test 1165 / loop 1165 (full Challenge, 4-way)
 
 Saves:
@@ -122,10 +122,10 @@ def main():
     panel(
         axes[1],
         RULETAKER,
-        title="RuleTaker — n2k pilot",
+        title="RuleTaker — 10k/4k",
         ylabel="Accuracy",
         base_rate=0.50,
-        note="train 2000 · val 1000 · loop 1000 · in-context rules",
+        note="train 10000 · val 4000 · loop 4000 · in-context rules",
         ylim=(0.50, 0.90),
         show_legend=False,
     )

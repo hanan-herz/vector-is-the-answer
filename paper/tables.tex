@@ -17,8 +17,8 @@
 \centering
 \caption{\textbf{One-pass residual readout vs.\ fair AR closed-set scorer}
 (accuracy). Readout: MLP on frozen final residual (\emph{per-seed mean};
-identical final-layer numbers as Tables~\ref{tab:placement}
-and~\ref{tab:controls}). Loop: next-token log-prob over the closed answer
+BoolQ/ARC finals match Table~\ref{tab:placement}; RuleTaker is the 10k/4k
+run). Loop: next-token log-prob over the closed answer
 set, full context, balanced few-shot --- not free-form generation. loop.0 /
 loop.8 = zero- / 8-shot; \emph{best loop} = stronger arm ($k$ in
 parentheses; RT 0.6B and ARC DSV4 prefer zero-shot). $\Delta=$ readout $-$
@@ -26,12 +26,12 @@ best loop (best-of makes $\Delta$ conservative). Paired McNemar on
 identical rows using 4-seed vote preds (mean--vote $\le$0.9pt; never flips
 sig/ns). Stars mark \emph{uncorrected} $p$
 ($^{\ast}p{<}0.05$, $^{\ast\ast}p{<}0.01$, $^{\ast\ast\ast}p{<}0.001$);
-all 11 raw-significant cells remain significant under Benjamini--Hochberg
+all 12 raw-significant cells remain significant under Benjamini--Hochberg
 FDR at $q{<}0.05$ across the 18 cells.
 \textsuperscript{a}BoolQ val 3270; Qwen $k{\le}64$ pad 8192, else $k{=}8$
 pad 2048.
-\textsuperscript{b}RuleTaker n2k pilot, val 1000 (same rows for readout and
-loop).
+\textsuperscript{b}RuleTaker 10k/4k, val 4000 (same rows for readout and
+loop). Placement (Table~\ref{tab:placement}) is a separate layer-sweep.
 \textsuperscript{c}ARC-Challenge test 1165, $k{=}8$.}
 \label{tab:main}
 \small
@@ -49,13 +49,13 @@ Task & Model & Readout & loop.0 & loop.8 & best loop & $\Delta$ (readout $-$ loo
  & Granite-3.1-8B & 0.854 & 0.800 & 0.865 & \textbf{0.865}\,(8) & $-0.011$ & 0.076 \\
  & DeepSeek-V4-Flash & 0.896 & 0.888 & 0.906 & \textbf{0.906}\,(8) & $-0.009$ & 0.078 \\
 \midrule
-\multirow{6}{*}{RuleTaker n2k\textsuperscript{b}}
- & Qwen3-0.6B & \textbf{0.650} & 0.598 & 0.587 & 0.598\,(zero) & \sd{+0.052}\pstarstar & 0.004 \\
- & Qwen3-4B   & \textbf{0.744} & 0.679 & 0.703 & 0.703\,(8) & \sd{+0.041}\pstarstar & 0.005 \\
- & Qwen3-8B   & \textbf{0.758} & 0.666 & 0.729 & 0.729\,(8) & $+0.029$ & 0.056 \\
- & Mistral-7B & \textbf{0.643} & 0.517 & 0.571 & 0.571\,(8) & \sd{+0.072}\pstarstarstar & $8.4\mathrm{e}{-04}$ \\
- & Granite-3.1-8B & \textbf{0.805} & 0.554 & 0.685 & 0.685\,(8) & \sd{+0.120}\pstarstarstar & $6.5\mathrm{e}{-12}$ \\
- & DeepSeek-V4-Flash & 0.765 & 0.603 & 0.803 & \textbf{0.803}\,(8) & \sd{$-0.038$}\pstarstar & 0.009 \\
+\multirow{6}{*}{RuleTaker\textsuperscript{b}}
+ & Qwen3-0.6B & \textbf{0.684} & 0.593 & 0.580 & 0.593\,(zero) & \sd{+0.090}\pstarstarstar & $1.0\mathrm{e}{-20}$ \\
+ & Qwen3-4B   & \textbf{0.782} & 0.678 & 0.690 & 0.690\,(8) & \sd{+0.092}\pstarstarstar & $6.8\mathrm{e}{-29}$ \\
+ & Qwen3-8B   & \textbf{0.782} & 0.678 & 0.736 & 0.736\,(8) & \sd{+0.046}\pstarstarstar & $1.6\mathrm{e}{-09}$ \\
+ & Mistral-7B & \textbf{0.682} & 0.522 & 0.571 & 0.571\,(8) & \sd{+0.111}\pstarstarstar & $4.2\mathrm{e}{-28}$ \\
+ & Granite-3.1-8B & \textbf{0.823} & 0.564 & 0.703 & 0.703\,(8) & \sd{+0.119}\pstarstarstar & $1.1\mathrm{e}{-45}$ \\
+ & DeepSeek-V4-Flash & 0.797 & 0.600 & 0.813 & \textbf{0.813}\,(8) & \sd{$-0.016$}\pstar & 0.029 \\
 \midrule
 \multirow{6}{*}{ARC-Challenge\textsuperscript{c}}
  & Qwen3-0.6B & 0.492 & 0.502 & 0.597 & \textbf{0.597}\,(8) & \sd{$-0.106$}\pstarstarstar & $3.2\mathrm{e}{-11}$ \\
@@ -97,7 +97,7 @@ Task & Model & \# & Tap & Dep. & Plateau & best & final & $\Delta$ & $p$ \\
   & Granite-3.1-8B & 40 & L20 & 51\% & \sd{L17 (44\%)} &0.868 & 0.854 & \sd{+0.018}\pstarstar & $1.0\mathrm{e}{-03}$ \\
   & DeepSeek-V4-Flash & 43 & L36 & 86\% & \sd{L22 (52\%)} &0.900 & 0.896 & $+0.005$ & 0.20 \\
 \midrule
-\multirow{6}{*}{RuleTaker n2k}
+\multirow{6}{*}{RuleTaker}
   & Qwen3-0.6B & 28 & L18 & 64\% & \sd{L13 (48\%)} &0.688 & 0.650 & \sd{+0.036}\pstar & 0.020 \\
   & Qwen3-4B   & 36 & L24 & 67\% & L24 (69\%) &0.781 & 0.744 & \sd{+0.038}\pstarstar & $2.8\mathrm{e}{-03}$ \\
   & Qwen3-8B   & 36 & L24 & 67\% & L24 (69\%) &0.778 & 0.758 & \sd{+0.025}\pstar & 0.040 \\
@@ -172,12 +172,12 @@ Task & Model & shuffle & rp max & rp perm & rp noise & full-ctx & final \\
   & DeepSeek-V4 & 0.522 & 0.889 & 0.891 & 0.602 & 0.678 & 0.896 \\
 \midrule
 \multirow{6}{*}{RuleTaker}
-  & Qwen3-0.6B & 0.511 & 0.635 & 0.635 & 0.489 & 0.517 & 0.650 \\
-  & Qwen3-4B & 0.474 & 0.718 & 0.726 & 0.505 & 0.586 & 0.744 \\
-  & Qwen3-8B & 0.488 & 0.736 & 0.745 & 0.496 & 0.575 & 0.758 \\
-  & Mistral-7B & 0.495 & 0.645 & 0.634 & 0.496 & 0.503 & 0.643 \\
-  & Granite-3.1-8B & 0.491 & 0.756 & 0.757 & 0.496 & 0.545 & 0.805 \\
-  & DeepSeek-V4 & 0.500 & 0.726 & 0.716 & 0.506 & 0.518 & 0.765 \\
+  & Qwen3-0.6B & 0.498 & 0.657 & 0.663 & 0.502 & 0.532 & 0.684 \\
+  & Qwen3-4B & 0.516 & 0.748 & 0.752 & 0.490 & 0.619 & 0.782 \\
+  & Qwen3-8B & 0.506 & 0.760 & 0.755 & 0.502 & 0.634 & 0.782 \\
+  & Mistral-7B & 0.503 & 0.656 & 0.646 & 0.502 & 0.521 & 0.682 \\
+  & Granite-3.1-8B & 0.504 & 0.792 & 0.785 & 0.502 & 0.599 & 0.823 \\
+  & DeepSeek-V4 & 0.509 & 0.768 & 0.759 & 0.503 & 0.526 & 0.797 \\
 \midrule
 \multirow{6}{*}{ARC}
   & Qwen3-0.6B & 0.278 & 0.470 & 0.470 & 0.254 & 0.278 & 0.492 \\

@@ -43,8 +43,8 @@ SLUG = {
 # file has the full-3270 loop). Otherwise loop_json == run_json.
 #
 # For paper Table 1 verification, prefer scripts/verify_tables.py CELLS
-# (Scheme A / paper/tables.tex). This builder's RuleTaker rows use n2k pilot
-# JSONs; verify_tables uses layersweep paths for those cells.
+# (Scheme A / paper/tables.tex, RuleTaker layersweep). This builder's
+# RuleTaker rows use the 10k/4k JSONs (same source as the paper figures).
 CELLS = [
     ("BoolQ", "Qwen3-0.6B", "boolq_budget_06b.json", None),
     ("BoolQ", "Qwen3-4B", "boolq_budget_4b.json", None),
@@ -52,12 +52,12 @@ CELLS = [
     ("BoolQ", "Mistral-7B", "boolq_layersweep_mistral7b.json", "boolq_mistral7b_rerun.json"),
     ("BoolQ", "Granite-3.1-8B", "boolq_layersweep_granite8b.json", "boolq_granite8b_rerun.json"),
     ("BoolQ", "DeepSeek-V4-Flash", "boolq_layersweep_dsv4.json", None),
-    ("RuleTaker", "Qwen3-0.6B", "ruletaker_qwen06b_n2k.json", None),
-    ("RuleTaker", "Qwen3-4B", "ruletaker_qwen4b_n2k.json", None),
-    ("RuleTaker", "Qwen3-8B", "ruletaker_qwen8b_n2k.json", None),
-    ("RuleTaker", "Mistral-7B", "ruletaker_mistral7b_n2k.json", None),
-    ("RuleTaker", "Granite-3.1-8B", "ruletaker_granite8b_n2k.json", None),
-    ("RuleTaker", "DeepSeek-V4-Flash", "ruletaker_dsv4_n2k.json", None),
+    ("RuleTaker", "Qwen3-0.6B", "ruletaker_qwen06b_n10k.json", None),
+    ("RuleTaker", "Qwen3-4B", "ruletaker_qwen4b_n10k.json", None),
+    ("RuleTaker", "Qwen3-8B", "ruletaker_qwen8b_n10k.json", None),
+    ("RuleTaker", "Mistral-7B", "ruletaker_mistral7b_n10k.json", None),
+    ("RuleTaker", "Granite-3.1-8B", "ruletaker_granite8b_n10k.json", None),
+    ("RuleTaker", "DeepSeek-V4-Flash", "ruletaker_dsv4_n10k.json", None),
     ("ARC", "Qwen3-0.6B", "arc_layersweep_06b.json", None),
     ("ARC", "Qwen3-4B", "arc_layersweep_4b.json", None),
     ("ARC", "Qwen3-8B", "arc_layersweep_8b.json", None),

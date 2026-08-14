@@ -1,6 +1,6 @@
 """Task-law summary figure — 3x6 heat panel (readout - best loop, 18 cells).
 
-Rows = task (BoolQ / RuleTaker n2k / ARC-Challenge), cols = model
+Rows = task (BoolQ / RuleTaker 10k/4k / ARC-Challenge), cols = model
 (Qwen3-0.6B / 4B / 8B / Mistral-7B / Granite-3.1-8B / DeepSeek-V4-Flash).
 Each cell is colored by Delta = readout - best loop (paired, same rows) and
 annotated with the delta and McNemar significance stars. The "task law" reads
@@ -29,7 +29,7 @@ TASKS = ["boolq", "ruletaker", "arc"]
 MODELS = [("Qwen3-0.6B", "Qwen3-0.6B"), ("Qwen3-4B", "Qwen3-4B"), ("Qwen3-8B", "Qwen3-8B"),
           ("Mistral-7B", "Mistral-7B"), ("Granite-3.1-8B", "Granite-3.1-8B"),
           ("DeepSeek-V4-Flash", "DeepSeek-V4")]
-TASK_TITLE = {"boolq": "BoolQ", "ruletaker": "RuleTaker n2k",
+TASK_TITLE = {"boolq": "BoolQ", "ruletaker": "RuleTaker 10k/4k",
               "arc": "ARC-Challenge"}
 
 

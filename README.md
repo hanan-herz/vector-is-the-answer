@@ -16,7 +16,7 @@ erased.
 |--|--|
 | **Paper** | [`paper/paper.pdf`](paper/paper.pdf) · sources in [`paper/`](paper/) |
 | **Author** | Hanan Herzog · [ORCID](https://orcid.org/0009-0009-0464-7112) · hanan.herzog@gmail.com |
-| **Tasks** | BoolQ (full val), RuleTaker n2k (pilot), ARC-Challenge (full test) |
+| **Tasks** | BoolQ (full val), RuleTaker 10k/4k, ARC-Challenge (full test) |
 | **Models** | Qwen3-0.6B/4B/8B, Mistral-7B, Granite-3.1-8B, DeepSeek-V4-Flash |
 | **Cite** | [`CITATION.cff`](CITATION.cff) |
 
@@ -67,8 +67,7 @@ python bench.py --task boolq --model Qwen/Qwen3-0.6B ...
 python paired_test.py ...
 ```
 
-Reported figures: `python plot_boolq.py`, `plot_head_to_head.py`,
-`plot_layersweep.py`, etc. (read from `results/*.json`).
+Reported figures: see [`FIGURES.md`](FIGURES.md) (`python plot_boolq.py`, …).
 
 ## Layout
 
@@ -80,6 +79,7 @@ Reported figures: `python plot_boolq.py`, `plot_head_to_head.py`,
 | `scripts/` | Table build, verify, canonical re-runs |
 | `results/` | Run JSON (headline numbers source of truth) |
 | `RESULTS.md` | Narrative results index (see banner for canonical numbers) |
+| `FIGURES.md` | Script → figure / table map |
 | `cloud/` | Optional Modal serving helpers (no secrets) |
 
 ## License

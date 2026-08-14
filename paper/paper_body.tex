@@ -24,15 +24,15 @@ loop --- full context, balanced few-shot, scored by next-token
 log-probability over the same answer set --- matched on information access
 and scoring protocol, and budget-stress-tested at 0.6B (Ext~13; $k{\le}64$ at
 $4\times$ pad). We do \emph{not} compare against free-form or multi-step
-generation. On BoolQ (full validation), RuleTaker n2k (\emph{pilot}), and
+generation. On BoolQ (full validation), RuleTaker (10k/4k), and
 ARC-Challenge (full test), the one-pass \head{} matches or beats that
 closed-set scorer at nearly every scale: it wins significantly where the
-verbal channel is weakest (RuleTaker $+12.0$pt on Granite-8B, $+5.2$pt at
+verbal channel is weakest (RuleTaker $+11.9$pt on Granite-8B, $+9.0$pt at
 0.6B; BoolQ $+3.0$pt at 0.6B against the budget-max loop), is a
 \emph{statistical} tie at mid-scale BoolQ (numerical losses of
 ${\sim}$0.7--1.1pt, all non-significant), and loses in three ordered regimes
 --- small models on parametric knowledge (ARC), a frontier MoE on serial
-deduction (RuleTaker pilot at DeepSeek-V4), and Mistral-7B on BoolQ. The map
+deduction (RuleTaker at DeepSeek-V4), and Mistral-7B on BoolQ. The map
 survives label-shuffle nulls, random-projection selectivity, per-length
 deconfounds, and paired McNemar on identical rows. Sweeping the \head{} tap
 across depth, the verdict is assembled by mid-depth: the best mid-layer tap
@@ -81,8 +81,8 @@ comparison carries no paired significance or selectivity controls. We take the
 convergence as evidence the premise is ripe; the measurement we run here is
 the part that was missing.
 
-\textbf{Findings.} On BoolQ (full validation, 3270 rows), RuleTaker (n2k
-pilot), and ARC-Challenge (full test), across six models from 0.6B to a
+\textbf{Findings.} On BoolQ (full validation, 3270 rows), RuleTaker (10k/4k),
+and ARC-Challenge (full test), across six models from 0.6B to a
 frontier MoE:
 
 \begin{enumerate}
@@ -101,13 +101,13 @@ frontier MoE:
   loses --- the final layer is a \emph{lower bound} on what the residual
   \head{} can do (\S\ref{sec:placement}).
 \item \textbf{The margins can be large.} Where the loop's verbal channel is
-  weakest, the \head{}'s lead is largest: $+12.0$pt on RuleTaker with
-  Granite-3.1-8B (\head{} 0.805 vs loop 0.685, McNemar $p=6.5\mathrm{e}{-12}$).
+  weakest, the \head{}'s lead is largest: $+11.9$pt on RuleTaker with
+  Granite-3.1-8B (\head{} 0.823 vs loop 0.703, McNemar $p=1.1\mathrm{e}{-45}$).
 \end{enumerate}
 
 \noindent\emph{Claim discipline.} The \head{} is at parity or better in most
 cells; the loop wins in three \emph{regimes} --- a frontier MoE on serial
-deduction (RuleTaker pilot at DeepSeek-V4, $-3.8$pt), Mistral-7B on BoolQ
+deduction (RuleTaker at DeepSeek-V4, $-1.6$pt), Mistral-7B on BoolQ
 ($-2.2$pt), and small models on parametric knowledge (ARC, $-10.6 \to
 -0.7$pt as models grow). The remaining BoolQ cells are statistical ties ---
 four of six sit within $\pm$1.2pt, all non-significant. The contribution is
@@ -293,27 +293,26 @@ BoolQ is passage-grounded. We test the two ways a task can be harder for a
 one-pass \head{}: \textbf{serial deduction depth} (RuleTaker) and
 \textbf{parametric knowledge with no passage} (ARC-Challenge).
 
-\subsection{RuleTaker n2k (pilot): matched loop rows, per-depth strata}
+\subsection{RuleTaker 10k/4k: matched loop rows, per-depth strata}
 
 RuleTaker \citep{clark2020ruletaker} is closed-world rule reasoning with
 labeled deduction depth (0/1/2/3/5 $+$ NatLang), loaded via Hugging Face
-\texttt{tasksource/ruletaker}. Protocol: 2000 train / 1000 val (n2k pilot
-subsample of the full release), loop on the same 1000 rows, $k\in\{0,8\}$,
+\texttt{tasksource/ruletaker}. Protocol: 10000 train / 4000 val (subsample of
+the full release), loop on the same 4000 rows, $k\in\{0,8\}$,
 batch 8. On Qwen, the matched one-pass MLP \textbf{beats
-the fair 8-shot loop at every scale} ($+2.9$ to $+5.2$pt; significant at 0.6B
-and 4B, $p=3.8\mathrm{e}{-03}$ and $5.3\mathrm{e}{-03}$; 8B is a near-tie
-$p=0.056$). The cross-family models sharpen the picture:
-Mistral-7B $+7.2$pt ($p=8.4\mathrm{e}{-04}$), \textbf{Granite-3.1-8B $+12.0$pt
-($p=6.5\mathrm{e}{-12}$) --- the largest \head{} margin in the campaign.} The
-one clean loop win in this pilot is DeepSeek-V4 ($-3.8$pt,
-$p=8.5\mathrm{e}{-03}$), driven by the shallow-depth strata.
+the fair loop at every scale} ($+4.6$ to $+9.2$pt; all $p{<}10^{-8}$; 0.6B
+prefers zero-shot, 4B/8B prefer 8-shot). The cross-family models sharpen the picture:
+Mistral-7B $+11.1$pt ($p=4.2\mathrm{e}{-28}$), \textbf{Granite-3.1-8B $+11.9$pt
+($p=1.1\mathrm{e}{-45}$) --- the largest \head{} margin in the campaign.} The
+one clean loop win is DeepSeek-V4 ($-1.6$pt,
+$p=0.029$), driven by the shallow-depth strata.
 
 \textbf{Per-depth} (same rows): no sharp ``only the loop works past depth
 $D$'' cliff. Accuracy degrades gradually with depth; $d{=}5$ remains well
 above chance. The DSV4 loop win concentrates at shallow depths ($d0/d1$,
-$+10$--$15$pt); at 0.6B the loop \emph{collapses} with depth ($d5$ loop.8
-0.392 $\ll$ \head{} 0.544). Thin bins ($n=21$--$51$) are reported with $n$ and
-not over-read (Fig.~\ref{fig:depth}).
+$+5$--$11$pt); at 0.6B the loop lags at depth ($d5$ loop.8
+0.522 vs.\ \head{} 0.625). Depth bins are $n{=}211$--$1946$ ($d3$ dominates)
+(Fig.~\ref{fig:depth}).
 
 \begin{figure}[t]
 \centering
@@ -453,10 +452,10 @@ exhibitable on frozen base weights:
 The remaining ``loop wins'' cell --- a TC$^0$-hard task on which a
 \emph{frozen} loop decisively beats one-pass --- is largely unoccupied in our
 sweep; the counter-position (COCONUT, looped-latent) buys serial depth by
-\emph{training}, which is out of scope here. Because RuleTaker is an n2k
-pilot with thin per-depth bins ($n=21$--$51$), we treat the serial-depth
-boundary as \emph{exploratory}: it indicates where a TC$^0$ gap would appear
-but is underpowered to fix its location.
+\emph{training}, which is out of scope here. Because RuleTaker is a 10k/4k
+subsample of the official release ($d3$ fat), we treat the serial-depth
+boundary as \emph{indicative}: it shows where a TC$^0$ gap would appear
+but does not pin its location on the full test.
 
 \section{Discussion}
 \label{sec:discussion}
@@ -470,7 +469,7 @@ claim the loop never computes, and we identify the three regimes where it does
 
 \textbf{The residual supports a competitive closed-set classifier.} The
 \head{}'s largest margins are exactly where the loop is weakest (Granite
-RuleTaker $+12.0$pt; 0.6B everywhere) --- the \head{} channel saturates
+RuleTaker $+11.9$pt; 0.6B everywhere) --- the \head{} channel saturates
 before the verbal channel. This is the operational face of the
 internal-knowledge/external-behavior disconnect
 \citet{orgad2025know} document and \citet{gekhman2025insideout} formalize as
@@ -510,11 +509,12 @@ a proposal.
 \label{sec:limits}
 
 \begin{itemize}
-\item \textbf{RuleTaker is an n2k pilot} (2000/1000, natural depth mix, $d3$
-  fat), not the full test; per-depth bins are thin ($n=21$--$51$).
+\item \textbf{RuleTaker is a 10k/4k subsample} of the official release
+  (natural depth mix, $d3$ fat), not the full test; per-depth bins are
+  $n{=}211$--$1946$.
 \item \textbf{Multiple testing}: Table~\ref{tab:main}'s 18 McNemar $p$-values
   are reported uncorrected (stars);\\
-  all 11 raw-significant cells survive the
+  all 12 raw-significant cells survive the
   Benjamini--Hochberg FDR correction at $q{<}0.05$. Placement is stricter: 3
   of 9 raw mid-depth wins drop under the same correction (6/18 remain).
 \item \textbf{Truncation is not logged per row}: the \head{} reads at
@@ -604,7 +604,7 @@ pass is enough: a small \head{} head fit to the frozen residual recovers the
 answer without generating tokens --- and matches the strongest
 \emph{closed-set scoring} use of the autoregressive loop across the space we
 measured. Three loop-win \emph{regimes} remain: a frontier MoE
-on serial deduction (RuleTaker pilot at DeepSeek-V4), Mistral-7B on BoolQ,
+on serial deduction (RuleTaker at DeepSeek-V4), Mistral-7B on BoolQ,
 and a small-model parametric gap (ARC) that closes with scale; elsewhere the
 loop's edges are statistical ties (four of six BoolQ cells within
 $\pm$1.2pt). The claim is therefore bounded but strong: on this task class,
@@ -618,7 +618,7 @@ we measured the substrate.
 \section*{Data availability}
 Dataset releases used as-is: BoolQ \citep{clark2019boolq}
 (\texttt{google/boolq}), RuleTaker \citep{clark2020ruletaker}
-(\texttt{tasksource/ruletaker}; n2k pilot subsample), ARC-Challenge
+(\texttt{tasksource/ruletaker}; 10k/4k subsample), ARC-Challenge
 \citep{clark2018arc} (\texttt{allenai/ai2\_arc}, config
 \texttt{ARC-Challenge}).
 
