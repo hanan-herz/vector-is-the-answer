@@ -1,0 +1,481 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = []
+# ///
+"""modal-top — nvidia-smi across running Modal containers.
+
+  scripts/modal-top              # live curses view (click / o opens logs)
+  scripts/modal-top --once       # one snapshot (app ids are OSC-8 links)
+  scripts/modal-top -d 5         # extra pause after each probe (default 0)
+  scripts/modal-top --json
+  click / o / enter              # open app logs in browser
+"""
+from __future__ import annotations
+
+import argparse
+import curses
+import json
+import os
+import shutil
+import subprocess
+import sys
+import time
+import webbrowser
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
+
+MODAL = shutil.which("modal") or "modal"
+WS = "hanan-herzog"
+ENV = "main"
+
+PROBE_SH = r"""
+ncpu=$(nproc 2>/dev/null || echo 1)
+read -r _ u n s idle _ < /proc/stat
+t1=$((u+n+s+idle)); i1=$idle
+sleep 0.2
+read -r _ u n s idle _ < /proc/stat
+t2=$((u+n+s+idle)); i2=$idle
+dt=$((t2-t1)); di=$((i2-i1))
+if [ "$dt" -gt 0 ]; then pct=$((100*(dt-di)/dt)); else pct=0; fi
+echo "CPU $pct $ncpu"
+for i in 1 2 3 4 5; do
+  gpu=$(nvidia-smi --query-gpu=name,utilization.gpu,utilization.memory,memory.used,memory.total,temperature.gpu,power.draw --format=csv,noheader,nounits 2>/tmp/smi.err)
+  if [ -n "$gpu" ]; then
+    echo "GPU $gpu"
+    exit 0
+  fi
+  sleep 0.4
+done
+echo "ERR $(tr '\n' ' ' </tmp/smi.err)"
+exit 1
+"""
+
+
+def _workspace() -> str:
+    path = os.path.expanduser("~/.modal.toml")
+    active = current = None
+    try:
+        for raw in open(path):
+            line = raw.strip()
+            if line.startswith("[") and line.endswith("]"):
+                current = line[1:-1]
+            elif current and line.replace(" ", "").startswith("active=true"):
+                active = current
+    except OSError:
+        pass
+    return active or "hanan-herzog"
+
+
+def _logs_url(app_id: str) -> str:
+    return f"https://modal.com/apps/{WS}/{ENV}/{app_id}?activeTab=logs"
+
+
+def _osc8(text: str, url: str) -> str:
+    return f"\033]8;;{url}\033\\{text}\033]8;;\033\\"
+
+
+def _open_logs(app_id: str) -> None:
+    if app_id and app_id.startswith("ap-"):
+        webbrowser.open(_logs_url(app_id))
+
+
+def _run(args: list[str]) -> subprocess.CompletedProcess:
+    return subprocess.run(args, capture_output=True, text=True)
+
+
+def containers() -> list[dict]:
+    p = _run([MODAL, "container", "list", "--json"])
+    if p.returncode != 0:
+        raise RuntimeError(p.stderr.strip() or "modal container list failed")
+    return json.loads(p.stdout or "[]")
+
+
+def probe(cid: str) -> dict:
+    out: dict = {"container_id": cid, "ok": False}
+    p = None
+    for _ in range(3):
+        p = _run([MODAL, "container", "exec", cid, "--", "sh", "-c", PROBE_SH])
+        text = ((p.stdout or "") + "\n" + (p.stderr or "")).strip()
+        low = text.lower()
+        if any(s in low for s in _DEAD):
+            out["error"] = "done"
+            return out
+        cline = next((ln[4:].strip() for ln in text.splitlines()
+                      if ln.startswith("CPU ")), "")
+        if cline:
+            try:
+                pct, ncpu = cline.split()[:2]
+                out["util_cpu"] = int(float(pct))
+                out["ncpu"] = int(ncpu)
+            except (ValueError, IndexError):
+                pass
+        gline = next((ln[4:].strip() for ln in text.splitlines()
+                      if ln.startswith("GPU ")), "")
+        if gline:
+            try:
+                name, ug, um, mu, mt, temp, pwr = [
+                    x.strip() for x in gline.split(",")]
+                out.update({
+                    "ok": True,
+                    "name": name,
+                    "util_gpu": int(float(ug)),
+                    "util_mem": int(float(um)),
+                    "mem_used_mib": int(float(mu)),
+                    "mem_total_mib": int(float(mt)),
+                    "temp_c": int(float(temp)),
+                    "power_w": float(pwr),
+                })
+            except (ValueError, IndexError):
+                out["error"] = f"parse: {gline[:80]}"
+                time.sleep(0.4)
+                continue
+            return out
+        time.sleep(0.5)
+    err = ""
+    if p is not None:
+        err = (p.stdout or p.stderr or "").strip()
+        if err.startswith("ERR "):
+            err = err[4:].strip()
+    out["error"] = err or "empty nvidia-smi"
+    return out
+
+
+_last_ok: dict[str, dict] = {}
+
+
+def snapshot() -> list[dict]:
+    cs = containers()
+    if not cs:
+        return []
+    by_id = {c["container_id"]: c for c in cs}
+    rows = []
+    with ThreadPoolExecutor(max_workers=max(1, len(cs))) as pool:
+        futs = {pool.submit(probe, cid): cid for cid in by_id}
+        for fut in as_completed(futs):
+            row = fut.result()
+            cid = row["container_id"]
+            if row.get("ok"):
+                _last_ok[cid] = dict(row)
+            elif cid in _last_ok:
+                row = dict(_last_ok[cid])
+                row["stale"] = True
+            row.update({k: by_id[cid].get(k)
+                        for k in ("app_id", "app_name", "start_time")})
+            if row.get("app_id"):
+                row["logs_url"] = _logs_url(row["app_id"])
+            rows.append(row)
+    rows.sort(key=lambda r: r.get("start_time") or "")
+    return rows
+
+
+W_APP, W_GPU, W_CPU, W_NCPU, W_USED, W_TOT, W_TEMP, W_PWR, W_ARCH = (
+    26, 4, 4, 4, 6, 5, 4, 5, 14,
+)
+GAP = "  "
+_FIXED = (W_APP, W_GPU, W_CPU, W_NCPU, W_USED, W_TOT, W_TEMP, W_PWR, W_ARCH)
+_DEAD = ("already finished", "terminated", "not found", "no such container")
+
+
+def _bar_inner(cols: int, indent: int = 0) -> int:
+    used = sum(_FIXED) + len(GAP) * len(_FIXED) + indent + 2
+    return max(4, cols - used - 2)
+
+
+def _bar(pct: int, width: int) -> str:
+    n = max(0, min(width, round(width * pct / 100)))
+    return "[" + "|" * n + " " * (width - n) + "]"
+
+
+def _clip(s: str, n: int) -> str:
+    s = str(s)
+    return s if len(s) <= n else s[: n - 1] + "+"
+
+
+def _cells(app: str, gpu: str, cpu: str, ncpu: str,
+           used: str, tot: str, temp: str, pwr: str, arch: str,
+           bar: str) -> str:
+    return GAP.join((
+        _clip(app, W_APP).ljust(W_APP),
+        gpu.rjust(W_GPU),
+        cpu.rjust(W_CPU),
+        ncpu.rjust(W_NCPU),
+        used.rjust(W_USED),
+        tot.rjust(W_TOT),
+        temp.rjust(W_TEMP),
+        pwr.rjust(W_PWR),
+        _clip(arch, W_ARCH).ljust(W_ARCH),
+        bar,
+    ))
+
+
+def _header() -> str:
+    return GAP.join((
+        "APP".ljust(W_APP),
+        "GPU%".rjust(W_GPU),
+        "%CPU".rjust(W_CPU),
+        "NCPU".rjust(W_NCPU),
+        "USED".rjust(W_USED),
+        "TOT".rjust(W_TOT),
+        "TEMP".rjust(W_TEMP),
+        "PWR".rjust(W_PWR),
+        "ARCH".ljust(W_ARCH),
+        "",
+    ))
+
+
+def _cpu_cells(r: dict) -> tuple[str, str]:
+    if "util_cpu" not in r:
+        return "-", "-"
+    n = r.get("ncpu")
+    return f"{r['util_cpu']}", f"{n}" if n is not None else "-"
+
+
+def _row(r: dict, bar_w: int) -> tuple[str, list[str]]:
+    app = r.get("app_id") or "?"
+    cpu, ncpu = _cpu_cells(r)
+    if not r.get("ok"):
+        return _cells(app, "-", cpu, ncpu, "", "", "", "", "", _bar(0, bar_w)), []
+    arch = r["name"].replace("NVIDIA ", "")
+    if r.get("stale"):
+        arch += " *"
+    return _cells(
+        app, f"{r['util_gpu']}",
+        cpu, ncpu,
+        f"{r['mem_used_mib'] / 1024:.1f}G",
+        f"{r['mem_total_mib'] / 1024:.0f}G",
+        f"{r['temp_c']}C",
+        f"{r['power_w']:.0f}W",
+        arch,
+        _bar(r["util_gpu"], bar_w),
+    ), []
+
+
+def _fmt(rows: list[dict]) -> str:
+    now = datetime.now().strftime("%H:%M:%S")
+    if not rows:
+        return f"modal-top - {now}    0 containers"
+    bar_w = _bar_inner(shutil.get_terminal_size().columns)
+    busy = sum(1 for r in rows if r.get("ok") and r.get("util_gpu", 0) > 5)
+    lines = [
+        f"modal-top - {now}    {len(rows)} containers, {busy} busy",
+        _header(),
+    ]
+    for r in rows:
+        main, extra = _row(r, bar_w)
+        app = r.get("app_id") or ""
+        shown = _clip(app, W_APP).ljust(W_APP)
+        if app.startswith("ap-"):
+            main = _osc8(shown, _logs_url(app)) + main[len(shown):]
+        lines.append(main)
+        lines.extend(extra)
+    return "\n".join(lines)
+
+
+def _add(stdscr, y: int, x: int, s: str, attr: int = 0) -> int:
+    h, w = stdscr.getmaxyx()
+    if y < 0 or y >= h:
+        return y
+    stdscr.addnstr(y, x, s, max(0, w - x - 1), attr)
+    return y + 1
+
+
+def _color(util: int) -> int:
+    if util >= 80:
+        return curses.color_pair(2) | curses.A_BOLD
+    if util >= 20:
+        return curses.color_pair(3)
+    return curses.color_pair(4)
+
+
+def _banner_text(rows: list[dict], rtt: float | None, fetching: bool,
+                 loaded: bool) -> str:
+    now = datetime.now().strftime("%H:%M:%S")
+    if not loaded:
+        stats = "loading..."
+    else:
+        n = len(rows)
+        busy = sum(1 for r in rows if r.get("ok") and r.get("util_gpu", 0) > 5)
+        stats = f"{n} containers, {busy} busy"
+    rtt_s = f"rtt {rtt:.1f}s" if rtt is not None else "rtt ..."
+    flag = "  refreshing..." if fetching and loaded else ""
+    return (f" modal-top - {now}   {stats}"
+            f"   {rtt_s}   o logs   q quit{flag} ")
+
+
+def _banner(stdscr, rows: list[dict], rtt: float | None, fetching: bool,
+            loaded: bool, *, refresh: bool = True) -> None:
+    _, w = stdscr.getmaxyx()
+    hdr = _banner_text(rows, rtt, fetching, loaded)
+    stdscr.attron(curses.color_pair(1))
+    stdscr.addnstr(0, 0, hdr.ljust(max(0, w - 1)), max(0, w - 1))
+    stdscr.attroff(curses.color_pair(1))
+    if refresh:
+        stdscr.refresh()
+
+
+def _draw(stdscr, rows: list[dict], err: str | None, rtt: float | None,
+          fetching: bool, sel: int, loaded: bool, *, wipe: bool = False
+          ) -> list[tuple[int, str]]:
+    if wipe:
+        stdscr.clear()
+    else:
+        stdscr.erase()
+    h, w = stdscr.getmaxyx()
+    _banner(stdscr, rows, rtt, fetching, loaded, refresh=False)
+    y = _add(stdscr, 1, 0, "")
+    y = _add(stdscr, y, 0, "  " + _header(), curses.A_BOLD)
+    if err:
+        y = _add(stdscr, y, 2, err, curses.color_pair(2))
+    elif not loaded:
+        y = _add(stdscr, y, 2, "loading...", curses.A_DIM)
+    elif not rows:
+        y = _add(stdscr, y, 2, "(no running containers)", curses.A_DIM)
+    bar_w = _bar_inner(w, indent=2)
+    hits: list[tuple[int, str]] = []
+    for i, r in enumerate(rows):
+        if y >= h - 1:
+            break
+        main, extra = _row(r, bar_w)
+        attr = (curses.color_pair(2) if not r.get("ok")
+                else curses.A_DIM if r.get("stale")
+                else _color(r.get("util_gpu", 0)))
+        if i == sel:
+            attr |= curses.A_REVERSE
+        app = r.get("app_id") or ""
+        prefix = "  "
+        shown = _clip(app, W_APP).ljust(W_APP)
+        rest = main[len(shown):]
+        _add(stdscr, y, 0, prefix)
+        _add(stdscr, y, len(prefix), shown, attr | curses.A_UNDERLINE)
+        _add(stdscr, y, len(prefix) + len(shown), rest, attr)
+        if app.startswith("ap-"):
+            hits.append((y, app))
+        y += 1
+        for ln in extra:
+            if y >= h - 1:
+                break
+            y = _add(stdscr, y, 0, ln, curses.A_DIM)
+    stdscr.refresh()
+    return hits
+
+
+def _drain_resize(stdscr) -> bool:
+    hit = False
+    while True:
+        ch = stdscr.getch()
+        if ch == curses.KEY_RESIZE:
+            hit = True
+            continue
+        if ch != -1:
+            curses.ungetch(ch)
+        break
+    return hit
+
+
+def _handle(stdscr, ch: int, rows: list[dict], err: str | None,
+            rtt: float | None, sel: int, loaded: bool,
+            hits: list[tuple[int, str]]) -> tuple[int, list[tuple[int, str]]] | None:
+    if ch in (ord("q"), ord("Q")):
+        return None
+    if ch in (curses.KEY_UP, ord("k")) and rows:
+        sel = (sel - 1) % len(rows)
+        hits = _draw(stdscr, rows, err, rtt, False, sel, loaded)
+    elif ch in (curses.KEY_DOWN, ord("j")) and rows:
+        sel = (sel + 1) % len(rows)
+        hits = _draw(stdscr, rows, err, rtt, False, sel, loaded)
+    elif ch in (ord("o"), ord("O"), curses.KEY_ENTER, 10, 13) and rows:
+        _open_logs(rows[sel].get("app_id") or "")
+    elif ch == curses.KEY_MOUSE:
+        try:
+            _, _mx, my, _, bstate = curses.getmouse()
+        except curses.error:
+            return sel, hits
+        if bstate & (curses.BUTTON1_CLICKED | curses.BUTTON1_RELEASED
+                     | curses.BUTTON1_PRESSED):
+            for y, app in hits:
+                if y == my:
+                    _open_logs(app)
+                    break
+    elif ch == curses.KEY_RESIZE:
+        _drain_resize(stdscr)
+        hits = _draw(stdscr, rows, err, rtt, False, sel, loaded, wipe=True)
+    return sel, hits
+
+
+def _live(stdscr, extra: float) -> None:
+    curses.curs_set(0)
+    stdscr.leaveok(True)
+    curses.use_default_colors()
+    curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_GREEN)
+    curses.init_pair(2, curses.COLOR_RED, -1)
+    curses.init_pair(3, curses.COLOR_YELLOW, -1)
+    curses.init_pair(4, curses.COLOR_GREEN, -1)
+    curses.mousemask(curses.BUTTON1_CLICKED | curses.BUTTON1_RELEASED
+                     | curses.BUTTON1_PRESSED)
+    stdscr.nodelay(True)
+    rows, err, sel, loaded, rtt = [], None, 0, False, None
+    hits = _draw(stdscr, rows, err, rtt, True, sel, loaded)
+    while True:
+        _banner(stdscr, rows, rtt, True, loaded)
+        t0 = time.time()
+        try:
+            rows, err = snapshot(), None
+        except Exception as e:
+            err = str(e)
+        rtt = time.time() - t0
+        loaded = True
+        if rows:
+            sel = max(0, min(sel, len(rows) - 1))
+        wipe = _drain_resize(stdscr)
+        hits = _draw(stdscr, rows, err, rtt, False, sel, loaded, wipe=wipe)
+        deadline = time.time() + extra
+        while True:
+            ch = stdscr.getch()
+            if ch != -1:
+                got = _handle(stdscr, ch, rows, err, rtt, sel, loaded, hits)
+                if got is None:
+                    return
+                sel, hits = got
+            if time.time() >= deadline:
+                break
+            time.sleep(0.05)
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    ap.add_argument("-d", "--delay", type=float, default=0.0, metavar="SEC",
+                    help="extra pause after each probe (default 0)")
+    ap.add_argument("-w", "--watch", nargs="?", const=0, type=float,
+                    metavar="SEC", help=argparse.SUPPRESS)
+    ap.add_argument("--once", action="store_true",
+                    help="print one snapshot and exit")
+    ap.add_argument("--json", action="store_true")
+    ap.add_argument("--workspace", default=None, help="Modal workspace slug")
+    ap.add_argument("--env", default=None, help="Modal environment (default main)")
+    a = ap.parse_args()
+    global WS, ENV
+    WS = a.workspace or _workspace()
+    ENV = a.env or os.environ.get("MODAL_ENVIRONMENT") or "main"
+    interval = a.watch if a.watch is not None else a.delay
+
+    if a.json or a.once or not sys.stdout.isatty():
+        try:
+            rows = snapshot()
+        except Exception as e:
+            print(f"error: {e}", file=sys.stderr)
+            sys.exit(1)
+        print(json.dumps(rows, indent=1) if a.json else _fmt(rows))
+        return
+
+    try:
+        curses.wrapper(_live, max(0.0, interval))
+    except KeyboardInterrupt:
+        pass
+
+
+if __name__ == "__main__":
+    main()
