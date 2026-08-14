@@ -15,32 +15,32 @@ One-Pass Residual Readouts vs Fair Loop Scoring}}
 \maketitle
 
 \begin{abstract}
-On closed-set classification tasks, a single prompt forward pass is enough: a
-small supervised head on a frozen residual stream matches the strongest
-closed-set use of the autoregressive loop as a \emph{classifier}. We fit heads to the final-token
-residual of six open-weight models (Qwen3-0.6B/4B/8B, Mistral-7B,
-Granite-3.1-8B, DeepSeek-V4-Flash) and compare them to a fairly-conditioned
-loop --- full context, balanced few-shot, scored by next-token
-log-probability over the same answer set --- matched on information access
-and scoring protocol, and budget-stress-tested at 0.6B (Ext~13; $k{\le}64$ at
-$4\times$ pad). We do \emph{not} compare against free-form or multi-step
-generation. On BoolQ (full validation), RuleTaker (10k/4k), and
-ARC-Challenge (full test), the one-pass \head{} matches or beats that
-closed-set scorer at nearly every scale: it wins significantly where the
-verbal channel is weakest (RuleTaker $+11.9$pt on Granite-8B, $+9.0$pt at
-0.6B; BoolQ $+3.0$pt at 0.6B against the budget-max loop), is a
-\emph{statistical} tie at mid-scale BoolQ (numerical losses of
-${\sim}$0.7--1.1pt, all non-significant), and loses in three ordered regimes
---- small models on parametric knowledge (ARC), a frontier MoE on serial
-deduction (RuleTaker at DeepSeek-V4), and Mistral-7B on BoolQ. The map
-survives label-shuffle nulls, random-projection selectivity, per-length
-deconfounds, and paired McNemar on identical rows. Sweeping the \head{} tap
-across depth, the verdict is assembled by mid-depth: the best mid-layer tap
-beats the final layer at 9 of 18 cells (6/18 after Benjamini--Hochberg) and
-never loses significantly. Operationally, on this task class the residual
-supports a classifier that matches the loop's closed-set scorer ---
-\textbf{the vector already has the answer} --- with the boundaries of that
-claim mapped rather than erased.
+Language models usually answer classification questions by generating an answer
+token, but their internal representation may already contain the information
+needed to choose the correct answer. We test this possibility by comparing two
+ways of answering questions with a fixed set of choices. The first uses a small
+classifier trained on the model's internal representation after a single
+forward pass, without changing the language model itself. The second uses a
+fair closed-set scoring procedure: the model receives the full question and
+balanced few-shot examples, and its probabilities for the possible answer
+tokens are compared rather than allowing free-form or multi-step generation.
+
+We evaluate these methods on BoolQ, RuleTaker, and ARC-Challenge using six
+open-weight language models ranging from 0.6B to a mixture-of-experts model.
+The single-pass classifier matches or outperforms the token-scoring procedure
+in nearly every model--task setting. Its largest gains occur when the model's
+answer-token probabilities are least reliable, including an
+11.9-percentage-point improvement on RuleTaker with Granite-3.1-8B. The
+token-scoring procedure remains better for small models on ARC-Challenge, for
+DeepSeek-V4-Flash on RuleTaker, and for Mistral-7B on BoolQ. Label-shuffle,
+random-projection, and paired significance controls support the comparison.
+Sweeping the classifier's readout across the model shows that the answer is
+often assembled by mid-depth: the best mid-layer readout significantly beats
+the final-layer readout in 6 of 18 cells after correction and never loses
+significantly. The results suggest that, for this defined class of
+classification tasks, the model's internal vector often already contains the
+answer, while the autoregressive loop remains useful in several identifiable
+regimes.
 \end{abstract}
 
 \section{Introduction}
