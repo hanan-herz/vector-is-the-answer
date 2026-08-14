@@ -702,7 +702,7 @@ RuleTaker sweep `77e037` (+ b4 sensitivity `373655`), ARC sweeps `ab30b3`
 `57a235` (8B). Artifacts: `results/*layersweep*.json{,_paired}` +
 `results/ruletaker_{qwen4b,qwen8b,dsv4}_n2k.json`; per-layer heads persisted
 under `cloud_bench_cache/<slug>/<task>/heads/`. Publication tables:
-`paper/main_tables.tex` → `paper/main_tables.pdf` (tectonic).
+`paper/main_tables.tex` → `paper/main_tables.pdf` (lualatex).
 
 ## Ext 16 — Cross-family check: Mistral-7B (wide-shallow contrast)
 

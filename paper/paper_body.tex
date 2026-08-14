@@ -513,9 +513,10 @@ a proposal.
 \item \textbf{RuleTaker is an n2k pilot} (2000/1000, natural depth mix, $d3$
   fat), not the full test; per-depth bins are thin ($n=21$--$51$).
 \item \textbf{Multiple testing}: Table~\ref{tab:main}'s 18 McNemar $p$-values
-  are reported uncorrected (stars); all 11 raw-significant cells survive
-  Benjamini--Hochberg FDR at $q{<}0.05$. Placement is stricter: 3 of 9 raw
-  mid-depth wins drop under the same correction (6/18 remain).
+  are reported uncorrected (stars);\\
+  all 11 raw-significant cells survive the
+  Benjamini--Hochberg FDR correction at $q{<}0.05$. Placement is stricter: 3
+  of 9 raw mid-depth wins drop under the same correction (6/18 remain).
 \item \textbf{Truncation is not logged per row}: the \head{} reads at
   $\mathrm{pad\_max}=384$ (left-truncated) against the loop's 2048--8192, and
   we do not record the fraction of rows truncated, so a length-asymmetric
@@ -614,11 +615,7 @@ the model already computes. \textbf{The vector already has the answer.} The
 construction of serving machinery on that substrate is companion work; here,
 we measured the substrate.
 
-\section*{Code and data availability}
-Per-layer heads, per-row predictions, run manifests, and the scripts that
-regenerate Tables~\ref{tab:main}--\ref{tab:placement}
-(\texttt{bench.py}, \texttt{scripts/build\_table1.py},
-\texttt{scripts/verify\_tables.py}) will be released with the arXiv source.
+\section*{Data availability}
 Dataset releases used as-is: BoolQ \citep{clark2019boolq}
 (\texttt{google/boolq}), RuleTaker \citep{clark2020ruletaker}
 (\texttt{tasksource/ruletaker}; n2k pilot subsample), ARC-Challenge
@@ -640,6 +637,8 @@ responsibility for the claims.
 % ------------------------------------------------------------- references --
 \clearpage
 \clearpage
+\begingroup
+\raggedright
 \bibliographystyle{plainnat}
 \bibliography{references}
-
+\endgroup

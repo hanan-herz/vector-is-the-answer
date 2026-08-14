@@ -51,7 +51,7 @@ via HuggingFace. Cloud image pins also live in Modal builders inside
 ### Paper build
 
 ```bash
-cd paper && tectonic paper.tex
+./paper/build.sh
 ```
 
 `paper/paper.pdf` is the built preprint; table numbers should match
