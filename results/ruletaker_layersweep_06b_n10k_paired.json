@@ -1,0 +1,21 @@
+{
+  "npz": "cloud_bench_cache/Qwen__Qwen3-0.6B/ruletaker/cache/vec_t10000_v4000_p384_b8_layersweep_rowpreds.npz",
+  "n": 4000,
+  "reports": [
+    {
+      "pair": "readout.mlp.L18 vs readout.mlp.L27",
+      "acc_a": 0.721,
+      "acc_b": 0.68375,
+      "diff": 0.03725,
+      "ci95": [
+        0.02325,
+        0.0515
+      ],
+      "both_right": 2406,
+      "a_only": 478,
+      "b_only": 329,
+      "neither": 787,
+      "mcnemar_p": 1.7501852463875917e-07
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "npz": "cloud_bench_cache/deepseek-ai__DeepSeek-V4-Flash-0731/ruletaker/cache/vec_t10000_v4000_p384_b8_layersweep_rowpreds.npz",
+  "n": 4000,
+  "reports": [
+    {
+      "pair": "readout.mlp.L29 vs readout.mlp.L42",
+      "acc_a": 0.809,
+      "acc_b": 0.7965,
+      "diff": 0.0125,
+      "ci95": [
+        0.002,
+        0.023
+      ],
+      "both_right": 2989,
+      "a_only": 247,
+      "b_only": 197,
+      "neither": 567,
+      "mcnemar_p": 0.019945658825297273
+    }
+  ]
+}

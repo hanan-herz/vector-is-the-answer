@@ -1,0 +1,21 @@
+{
+  "npz": "cloud_bench_cache/ibm-granite__granite-3.1-8b-base/ruletaker/cache/vec_t10000_v4000_p384_b8_layersweep_rowpreds.npz",
+  "n": 4000,
+  "reports": [
+    {
+      "pair": "readout.mlp.L20 vs readout.mlp.L39",
+      "acc_a": 0.84825,
+      "acc_b": 0.82475,
+      "diff": 0.0235,
+      "ci95": [
+        0.013,
+        0.03375
+      ],
+      "both_right": 3122,
+      "a_only": 271,
+      "b_only": 177,
+      "neither": 430,
+      "mcnemar_p": 1.0383151266469443e-05
+    }
+  ]
+}

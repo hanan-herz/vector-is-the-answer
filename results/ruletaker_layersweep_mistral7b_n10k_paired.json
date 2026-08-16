@@ -1,0 +1,21 @@
+{
+  "npz": "cloud_bench_cache/mistralai__Mistral-7B-v0.3/ruletaker/cache/vec_t10000_v4000_p384_b8_layersweep_rowpreds.npz",
+  "n": 4000,
+  "reports": [
+    {
+      "pair": "readout.mlp.L16 vs readout.mlp.L31",
+      "acc_a": 0.73225,
+      "acc_b": 0.6865,
+      "diff": 0.04575,
+      "ci95": [
+        0.031,
+        0.061
+      ],
+      "both_right": 2368,
+      "a_only": 561,
+      "b_only": 378,
+      "neither": 693,
+      "mcnemar_p": 2.5587204699384584e-09
+    }
+  ]
+}

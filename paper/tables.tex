@@ -31,8 +31,8 @@ FDR at $q{<}0.05$ across the 18 cells.
 \textsuperscript{a}BoolQ val 3270; Qwen $k{\le}64$ pad 8192, else $k{=}8$
 pad 2048.
 \textsuperscript{b}RuleTaker 10k/4k, val 4000 (same rows for readout and
-loop). Table~\ref{tab:placement} is a separate layer-sweep; its RuleTaker
-finals are not these numbers.
+loop). Table~\ref{tab:placement} uses the same 10k/4k protocol; displayed
+RuleTaker finals match.
 \textsuperscript{c}ARC-Challenge test 1165, $k{=}8$.}
 \label{tab:main}
 \small
@@ -75,8 +75,8 @@ Task & Model & Readout & loop.0 & loop.8 & best loop & $\Delta$ (readout $-$ loo
 \caption{\textbf{Readout probe-placement sweeps} (18 cells, all batch 8):
 best mid-depth tap vs the final-layer readout. $\Delta=$ displayed best $-$
 displayed final (per-seed means). $p$ is paired McNemar on 4-seed vote
-(mean--vote can differ by ${\sim}$1pt). RuleTaker finals are this layer-sweep,
-not Table~\ref{tab:main}. \emph{Layers} = stack depth
+(mean--vote can differ by ${\sim}$1pt). RuleTaker is the same 10k/4k
+protocol as Table~\ref{tab:main}. \emph{Layers} = stack depth
 (28/36/36/32/40/43). \emph{Plateau onset} = first swept layer within
 1\,pt of the final-layer readout --- a lightweight readout extracts nearly as
 much label information from there on as from the final residual; at
@@ -84,7 +84,7 @@ DeepSeek-V4 this happens by L22/42 (52\% depth)
 on \emph{all three tasks}, with ARC showing the sharpest snap-in
 (near-chance at L15 $\to$ 0.944 at L22). This is representation sufficiency,
 not a claim that later layers can be skipped. Mid-depth taps win significantly at
-9/18 cells raw (6/18 after Benjamini--Hochberg FDR at $q{<}0.05$) and never
+11/18 cells raw (10/18 after Benjamini--Hochberg FDR at $q{<}0.05$) and never
 lose significantly.}
 \label{tab:placement}
 \small
@@ -103,12 +103,12 @@ Task & Model & \# & Tap & Dep. & Plateau & best & final & $\Delta$ & $p$ \\
   & DeepSeek-V4-Flash & 43 & L36 & 86\% & \sd{L22 (52\%)} &0.900 & 0.896 & $+0.004$ & 0.20 \\
 \midrule
 \multirow{6}{*}{RuleTaker}
-  & Qwen3-0.6B & 28 & L18 & 64\% & \sd{L13 (48\%)} &0.688 & 0.650 & \sd{+0.038}\pstar & 0.020 \\
-  & Qwen3-4B   & 36 & L24 & 67\% & L24 (69\%) &0.781 & 0.744 & \sd{+0.037}\pstarstar & $2.8\mathrm{e}{-03}$ \\
-  & Qwen3-8B   & 36 & L24 & 67\% & L24 (69\%) &0.778 & 0.758 & \sd{+0.020}\pstar & 0.040 \\
-  & Mistral-7B & 32 & L18 & 56\% & \sd{L11 (35\%)} &0.702 & 0.643 & \sd{+0.059}\pstarstarstar & $5.2\mathrm{e}{-05}$ \\
-  & Granite-3.1-8B & 40 & L20 & 51\% & L20 (51\%) &0.816 & 0.805 & $+0.011$ & 0.37 \\
-  & DeepSeek-V4-Flash & 43 & L29 & 67\% & \sd{L22 (52\%)} &0.776 & 0.765 & $+0.011$ & 0.057 \\
+  & Qwen3-0.6B & 28 & L18 & 64\% & \sd{L13 (48\%)} &0.720 & 0.684 & \sd{+0.036}\pstarstarstar & $1.8\mathrm{e}{-07}$ \\
+  & Qwen3-4B   & 36 & L24 & 67\% & L24 (69\%) &0.796 & 0.782 & \sd{+0.014}\pstar & 0.027 \\
+  & Qwen3-8B   & 36 & L24 & 67\% & L24 (69\%) &0.797 & 0.782 & \sd{+0.015}\pstarstar & $5.0\mathrm{e}{-03}$ \\
+  & Mistral-7B & 32 & L16 & 50\% & \sd{L11 (35\%)} &0.732 & 0.682 & \sd{+0.050}\pstarstarstar & $2.6\mathrm{e}{-09}$ \\
+  & Granite-3.1-8B & 40 & L20 & 51\% & \sd{L17 (44\%)} &0.845 & 0.823 & \sd{+0.022}\pstarstarstar & $1.0\mathrm{e}{-05}$ \\
+  & DeepSeek-V4-Flash & 43 & L29 & 67\% & \sd{L22 (52\%)} &0.807 & 0.797 & \sd{+0.010}\pstar & 0.020 \\
 \midrule
 \multirow{6}{*}{ARC-Challenge}
   & Qwen3-0.6B & 28 & L26 & 93\% & L26 (96\%) &0.500 & 0.492 & $+0.008$ & 0.082 \\

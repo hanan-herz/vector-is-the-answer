@@ -34,7 +34,7 @@ model size --- including an 8.2-point gap on Granite-3.1-8B. The
 classifier's largest gain is 11.9 points on RuleTaker with Granite-3.1-8B,
 where token probabilities are weakest. Label-shuffle, random-projection, and
 paired tests support the comparison. Sweeping the tap across depth, the best
-mid-layer readout beats the final layer in 6 of 18 cells after correction and
+mid-layer readout beats the final layer in 10 of 18 cells after correction and
 never loses significantly. That is what a small readout can extract, not a
 license to skip later layers. For this task class the vector often already
 contains the answer; the loop still wins on ARC when the probe is weak.
@@ -81,10 +81,9 @@ ARC-Challenge (full test); six models from 0.6B to a frontier MoE:
 \item \textbf{On ARC the loop wins when the probe is weak.} The
   gap tracks probe accuracy, not parameter count: Qwen $-10.6 \to -4.1 \to
   -0.4$pt (the last ns); Granite-8B still loses by $8.2$pt at readout
-  accuracy 0.708. Two further exceptions sit outside ARC: DeepSeek-V4 on
-  RuleTaker and Mistral-7B on BoolQ (\S\ref{sec:boundary}).
+  accuracy 0.708 (\S\ref{sec:boundary}).
 \item \textbf{Answer-relevant information is already present mid-depth.} The
-  best mid-layer tap beats the final layer at 9/18 cells (6/18 after
+  best mid-layer tap beats the final layer at 11/18 cells (10/18 after
   Benjamini--Hochberg) and never loses. That is what a small readout can
   extract from $h_l$, not a claim that later layers can be skipped
   (\S\ref{sec:placement}).
@@ -94,7 +93,7 @@ ARC-Challenge (full test); six models from 0.6B to a frontier MoE:
 \end{enumerate}
 
 Fine-tuned specialist encoders beat our \head{}; serial-depth tasks may
-require the loop; a frozen continuous-latent loop drifts
+require the loop; a frozen latent loop drifts
 (\S\ref{sec:boundary}, \S\ref{sec:discussion}). The result is for this task
 class, not early exit and not all tasks.
 
@@ -353,15 +352,15 @@ full-model behavior.
 
 \begin{itemize}
 \item \textbf{The final-layer readout is not the best readout.} Mid-depth taps
-  beat the final layer significantly at \textbf{9/18 cells and never lose
+  beat the final layer significantly at \textbf{11/18 cells and never lose
   significantly} --- the headline numbers were a lower bound on what a
   gold-label \head{} can extract, not a claim that later layers add nothing.
-  Across the 18 cells, 6 survive a Benjamini--Hochberg FDR correction at
-  $q<0.05$ (the three borderline cells --- BoolQ 4B, RuleTaker 0.6B,
-  RuleTaker 8B --- drop out); the ``never loses'' direction is unchanged.
+  Across the 18 cells, 10 survive a Benjamini--Hochberg FDR correction at
+  $q<0.05$ (only BoolQ 4B drops); the ``never loses'' direction is unchanged.
 \item \textbf{The optimum is task-stable, not scale-driven.} BoolQ/RuleTaker
-  peak at 50--86\% depth at every scale; RuleTaker's optimum sits at $\sim$2/3
-  depth from 0.6B through DSV4. ARC drifts to the final layer at $\ge$8B ---
+  peak at 50--86\% depth at every scale; RuleTaker's Qwen and DeepSeek-V4
+  optima sit at $\sim$2/3 depth, while Mistral peaks at mid-stack (L16/32).
+  ARC drifts to the final layer at $\ge$8B ---
   once the parametric answer saturates the residual, late-layer specialization
   stops costing anything.
 \item \textbf{A mid-layer tap can beat the final-layer tap.} Where the loop
@@ -381,7 +380,7 @@ full-model behavior.
 \includegraphics[width=\textwidth]{figures/layersweep_placement.png}
 \caption{\textbf{Readout probe-placement sweeps} (18 cells). One-pass \head{}
 accuracy vs tapped residual layer; loop arms as horizontal references; paired
-McNemar annotation per panel. Mid-depth taps win significantly at 9/18 cells
+McNemar annotation per panel. Mid-depth taps win significantly at 11/18 cells
 and never lose.}
 \label{fig:placement}
 \end{figure*}
@@ -496,8 +495,8 @@ architecture as a proposal.
 \item \textbf{Multiple testing}: Table~\ref{tab:main}'s 18 McNemar $p$-values
   are reported uncorrected (stars);\\
   all 12 raw-significant cells survive the
-  Benjamini--Hochberg FDR correction at $q{<}0.05$. Placement is stricter: 3
-  of 9 raw mid-depth wins drop under the same correction (6/18 remain).
+  Benjamini--Hochberg FDR correction at $q{<}0.05$. Placement is stricter: 1
+  of 11 raw mid-depth wins drops under the same correction (10/18 remain).
 \item \textbf{Truncation is not logged per row}: the \head{} reads at
   $\mathrm{pad\_max}=384$ (left-truncated) against the loop's 2048--8192, and
   we do not record the fraction of rows truncated, so a length-asymmetric
@@ -581,9 +580,9 @@ $\pm$1.2pt). The readout is near-linear: the answer is a near-linear read of
 a vector the model already computes.
 
 \section*{Data availability}
-Dataset releases used as-is: BoolQ \citep{clark2019boolq}
-(\texttt{google/boolq}), RuleTaker \citep{clark2020ruletaker}
-(\texttt{tasksource/ruletaker}; 10k/4k subsample), ARC-Challenge
+Dataset releases used as-is. BoolQ \citep{clark2019boolq}
+(\texttt{google/boolq}). RuleTaker \citep{clark2020ruletaker}
+(\texttt{tasksource/ruletaker}), 10k/4k subsample. ARC-Challenge
 \citep{clark2018arc} (\texttt{allenai/ai2\_arc}, config
 \texttt{ARC-Challenge}).
 

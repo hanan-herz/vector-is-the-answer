@@ -8,8 +8,9 @@ a *_paired.json exists; the final-layer readout (last.mlp) is drawn as a
 diamond when it is not itself a swept layer. Loop arms are horizontal
 references (best loop arm present in the run + loop.zero).
 
-Inputs:  results/{boolq,ruletaker,arc}_layersweep_{06b,4b,8b,mistral7b,granite8b,dsv4}.json
-         (+ matching _paired.json where present)
+Inputs:  results/{boolq,arc}_layersweep_{06b,4b,8b,mistral7b,granite8b,dsv4}.json
+         results/ruletaker_layersweep_{tag}_n10k.json
+         (+ matching _paired.json / _n10k_paired.json where present)
 Output:  layersweep_placement.png
 """
 import json
@@ -43,10 +44,11 @@ fig, axes = plt.subplots(len(TASKS), len(MODELS), figsize=(26.0, 12.5))
 for row, task in enumerate(TASKS):
     for col, (tag, model) in enumerate(MODELS):
         ax = axes[row, col]
-        d = json.load(open(f"results/{task}_layersweep_{tag}.json"))
+        suffix = "_n10k" if task == "ruletaker" else ""
+        d = json.load(open(f"results/{task}_layersweep_{tag}{suffix}.json"))
         try:
             paired = {r["pair"]: r for r in json.load(
-                open(f"results/{task}_layersweep_{tag}_paired.json"))["reports"]}
+                open(f"results/{task}_layersweep_{tag}{suffix}_paired.json"))["reports"]}
         except FileNotFoundError:
             paired = {}
 
@@ -125,7 +127,7 @@ for row, task in enumerate(TASKS):
         if row == 0:
             ax.legend(fontsize=7, loc="upper left", framealpha=0.9)
 
-fig.suptitle("Readout placement sweeps (all batch 8) — mid-depth taps significantly beat the final layer at 9/18 cells,\n"
+fig.suptitle("Readout placement sweeps (all batch 8) — mid-depth taps significantly beat the final layer at 11/18 cells,\n"
              "never lose significantly; shaded band = plateau onset (first layer within 1pt of the final-layer readout)",
              fontsize=12.5, y=1.01)
 fig.tight_layout()
