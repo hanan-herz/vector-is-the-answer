@@ -34,13 +34,14 @@ answer-token probabilities are least reliable, including an
 token-scoring procedure remains better for small models on ARC-Challenge, for
 DeepSeek-V4-Flash on RuleTaker, and for Mistral-7B on BoolQ. Label-shuffle,
 random-projection, and paired significance controls support the comparison.
-Sweeping the classifier's readout across the model shows that the answer is
-often assembled by mid-depth: the best mid-layer readout significantly beats
-the final-layer readout in 6 of 18 cells after correction and never loses
-significantly. The results suggest that, for this defined class of
-classification tasks, the model's internal vector often already contains the
-answer, while the autoregressive loop remains useful in several identifiable
-regimes.
+Sweeping the classifier's readout across depth shows that intermediate
+residual states often already contain substantial answer-relevant information:
+the best mid-layer readout significantly beats the final-layer readout in 6 of
+18 cells after correction and never loses significantly. That is a statement
+about what a small readout can extract, not that later layers can be skipped.
+The results suggest that, for this defined class of classification tasks, the
+model's internal vector often already contains the answer, while the
+autoregressive loop remains useful in several identifiable regimes.
 \end{abstract}
 
 \section{Introduction}
@@ -95,11 +96,13 @@ frontier MoE:
   formal serial deduction (RuleTaker at DeepSeek-V4), and Mistral-7B on BoolQ.
   The first two gaps close or invert with scale and task type
   (\S\ref{sec:boundary}).
-\item \textbf{The answer is assembled by mid-depth.} Sweeping the \head{} tap
-  across the residual stream, the best mid-layer tap beats the final layer
-  significantly at 9/18 cells (6/18 after Benjamini--Hochberg) and never
-  loses --- the final layer is a \emph{lower bound} on what the residual
-  \head{} can do (\S\ref{sec:placement}).
+\item \textbf{Substantial answer-relevant information is already present
+  mid-depth.} Sweeping the \head{} tap across the residual stream, the best
+  mid-layer tap beats the final layer significantly at 9/18 cells (6/18 after
+  Benjamini--Hochberg) and never loses --- a lightweight readout can recover
+  the label from intermediate residuals as well as, and sometimes better than,
+  from the final layer (\S\ref{sec:placement}). This does not establish that
+  later layers are unused or that computation can stop.
 \item \textbf{The margins can be large.} Where the loop's verbal channel is
   weakest, the \head{}'s lead is largest: $+11.9$pt on RuleTaker with
   Granite-3.1-8B (\head{} 0.823 vs loop 0.703, McNemar $p=1.1\mathrm{e}{-45}$).
@@ -114,10 +117,10 @@ four of six sit within $\pm$1.2pt, all non-significant. The contribution is
 the \emph{map} of where each readout wins, not a blanket verdict --- and the
 map is mostly one color.
 
-\textbf{Why it matters.} Later work on residual heads, latent taps, and
-efficient inference can treat ``the answer is already in the vector'' as
-established on a defined task class --- not as a serving system we ship here,
-and not as a claim about all tasks. We state the boundaries explicitly
+\textbf{Why it matters.} Later work on residual heads and latent taps can treat
+``the answer is already in the vector'' as established on a defined task class
+--- not as early exit, not as a serving system we ship here, and not as a
+claim about all tasks. We state the boundaries explicitly
 (\S\ref{sec:boundary}, \S\ref{sec:discussion}): fine-tuned specialist encoders
 beat our \head{}; serial-depth tasks may require the loop; the frozen
 continuous-latent loop drifts. Within those bounds, the footnote is earned.
@@ -368,22 +371,26 @@ ARC) across models.}
 \label{fig:h2h}
 \end{figure}
 
-\subsection{Readout placement: the final layer is a lower bound}
+\subsection{Readout placement: information across depth}
 \label{sec:placement}
 
 Every headline number above taps the final residual layer. We swept the tap
 across depth (10 layers, paired McNemar vs the final-layer \head{}, trained
 heads persisted at every tap). The curve is the same everywhere: monotone
 rise, mid-depth plateau, slight terminal decline (Table~\ref{tab:placement},
-Fig.~\ref{fig:placement}).
+Fig.~\ref{fig:placement}). A high mid-depth readout accuracy means the residual
+already contains extractable answer-relevant information; it does not mean
+the intermediate LM head is correct, or that stopping there reproduces
+full-model behavior.
 
 \begin{itemize}
-\item \textbf{The final layer never wins.} Mid-depth taps beat the final layer
-  significantly at \textbf{9/18 cells and never lose significantly} --- the
-  headline numbers were a lower bound on the \head{}, not its ceiling. Across
-  the 18 cells, 6 survive a Benjamini--Hochberg FDR correction at $q<0.05$
-  (the three borderline cells --- BoolQ 4B, RuleTaker 0.6B, RuleTaker 8B ---
-  drop out); the ``never loses'' direction is unchanged.
+\item \textbf{The final-layer readout is not the best readout.} Mid-depth taps
+  beat the final layer significantly at \textbf{9/18 cells and never lose
+  significantly} --- the headline numbers were a lower bound on what a
+  gold-label \head{} can extract, not a claim that later layers add nothing.
+  Across the 18 cells, 6 survive a Benjamini--Hochberg FDR correction at
+  $q<0.05$ (the three borderline cells --- BoolQ 4B, RuleTaker 0.6B,
+  RuleTaker 8B --- drop out); the ``never loses'' direction is unchanged.
 \item \textbf{The optimum is task-stable, not scale-driven.} BoolQ/RuleTaker
   peak at 50--86\% depth at every scale; RuleTaker's optimum sits at $\sim$2/3
   depth from 0.6B through DSV4. ARC drifts to the final layer at $\ge$8B ---
@@ -411,11 +418,14 @@ and never lose.}
 
 \emph{Causal hedge.} The monotone-rise $\to$ plateau $\to$ terminal-decline
 shape is \emph{consistent with} late-layer specialization toward next-token
-surface form, but we do not demonstrate it: we never ablated deep layers
-against generation, and never probed next-token structure per layer. The
-direct test (a per-layer next-token probe) is future work; ``the verdict
-\head{} needs less than full depth'' and ``the final third is load-bearing for
-decoding'' are different claims, and only the first is on the table here.
+surface form or confidence correction, but we do not demonstrate it: we never
+ablated deep layers against generation, never measured calibration vs.\
+correctness by layer, and never probed next-token structure per layer. Three
+claims should not be conflated: (i)~the intermediate LM head predicts the
+correct token; (ii)~a small readout can extract the gold answer from $h_l$;
+(iii)~stopping at layer $l$ reproduces full-model behavior. The placement
+sweep addresses (ii). Inferring (iii) from (ii) is the early-exit claim, and
+it is prior art we do not make (\S\ref{sec:related}).
 
 \section{The boundary: where the loop could win, and why it doesn't cleanly here}
 \label{sec:boundary}
@@ -502,8 +512,10 @@ economics are marginal-cost (the forward pass already happened).
 
 \textbf{What we are not claiming.} A frozen continuous latent loop works (it
 drifts --- Exp~7); the loop never computes; we beat fine-tuned specialists; we
-shipped residual-first inference. Paper~2 explores the serving architecture as
-a proposal.
+shipped residual-first inference; we introduce early exit or adaptive
+computation; intermediate confidence is a stop rule; later layers can be
+skipped because a mid-depth readout is accurate. Paper~2 explores the serving
+architecture as a proposal.
 
 \section{Limitations}
 \label{sec:limits}
@@ -588,14 +600,21 @@ frozen.
 \textbf{Delimiting counter-position.} COCONUT \citep{hao2024coconut} and
 looped-latent transformers \citep{saunshi2025looped} \emph{train} a continuous
 latent loop to buy serial depth --- they set the boundary we test without
-training. Early-exit serving
-\citep{schuster2022calm,chen2023eellm,elhoushi2024layerskip,gromov2024unreasonable}
-decides \emph{when to exit}; we measure \emph{when the answer is already
-available} in the residual. The two are complementary: our placement map is
-evidence for their premise, not a serving design we ship. Trajectory-dynamics
-probes \citep{damirchi2026tat} read layer-wise displacement across all tokens
-for OOD monitoring --- a richer readout than our static one, aimed at a
-different goal.
+training. Early-exit and adaptive computation are established
+\citep{xin2020deebert,zhou2020pabee,schuster2021cat,schuster2022calm,elhoushi2024layerskip,chen2023eellm,fan2025adainfer,wei2025adadecode}:
+they decide \emph{when to stop} from intermediate predictions or confidence.
+We do not introduce that method. We measure how much gold-label information a
+small readout can extract from intermediate residuals --- representation
+sufficiency, not a license to skip later layers. Intermediate confidence is
+not automatically a reliable stop rule
+\citep{zhou2020pabee,wen2026specbound}; later layers may refine calibration
+after a decision is already linearly readable
+\citep{joshi2025calibration}; and early-exit opportunity is not universal in
+modern LLMs, especially MoE models \citep{wei2026diminishing}. Conditional
+computation is a motivation, not our contribution. Trajectory-dynamics probes
+\citep{damirchi2026tat} read layer-wise displacement across all tokens for OOD
+monitoring --- a richer readout than our static one, aimed at a different
+goal.
 
 \section{Conclusion}
 

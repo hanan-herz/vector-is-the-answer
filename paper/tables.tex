@@ -75,10 +75,12 @@ Task & Model & Readout & loop.0 & loop.8 & best loop & $\Delta$ (readout $-$ loo
 best mid-depth tap vs the final-layer readout, paired McNemar on identical
 rows. \emph{Layers} = stack depth (28/36/36/32/40/43); taps are residual-layer
 indices. \emph{Plateau onset} = first swept layer within
-1\,pt of the final-layer readout --- the verdict representation is fully
-assembled from there on; at DeepSeek-V4 this happens by L22/42 (52\% depth)
+1\,pt of the final-layer readout --- a lightweight readout extracts nearly as
+much label information from there on as from the final residual; at
+DeepSeek-V4 this happens by L22/42 (52\% depth)
 on \emph{all three tasks}, with ARC showing the sharpest snap-in
-(near-chance at L15 $\to$ 0.944 at L22). Mid-depth taps win significantly at
+(near-chance at L15 $\to$ 0.944 at L22). This is representation sufficiency,
+not a claim that later layers can be skipped. Mid-depth taps win significantly at
 9/18 cells raw (6/18 after Benjamini--Hochberg FDR at $q{<}0.05$) and never
 lose significantly.}
 \label{tab:placement}
@@ -124,8 +126,8 @@ orientation, not a benchmark). Status stamps every row: ``measured'' = our run
 protocol; ``projected'' = forward arithmetic we did not run. Readout \& scoring-loop are
 the same single pass at equal context ---
 the readout's structural gap is \textbf{no generation}, not layer-skipping.
-Early-exit serving shares our placement premise and is prior art for any
-``skip the tail'' claim.}
+Early-exit serving is prior art for any ``skip the tail'' claim; a mid-depth
+readout being accurate is not itself an early-exit result.}
 \label{tab:cost}
 \small
 \begin{tabular}{@{}lccc@{}}
