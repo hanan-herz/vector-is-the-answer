@@ -31,7 +31,8 @@ FDR at $q{<}0.05$ across the 18 cells.
 \textsuperscript{a}BoolQ val 3270; Qwen $k{\le}64$ pad 8192, else $k{=}8$
 pad 2048.
 \textsuperscript{b}RuleTaker 10k/4k, val 4000 (same rows for readout and
-loop). Placement (Table~\ref{tab:placement}) is a separate layer-sweep.
+loop). Table~\ref{tab:placement} is a separate layer-sweep; its RuleTaker
+finals are not these numbers.
 \textsuperscript{c}ARC-Challenge test 1165, $k{=}8$.}
 \label{tab:main}
 \small
@@ -61,7 +62,7 @@ Task & Model & Readout & loop.0 & loop.8 & best loop & $\Delta$ (readout $-$ loo
  & Qwen3-0.6B & 0.492 & 0.502 & 0.597 & \textbf{0.597}\,(8) & \sd{$-0.106$}\pstarstarstar & $3.2\mathrm{e}{-11}$ \\
  & Qwen3-4B   & 0.841 & 0.826 & 0.882 & \textbf{0.882}\,(8) & \sd{$-0.041$}\pstarstarstar & $2.9\mathrm{e}{-06}$ \\
  & Qwen3-8B   & 0.909 & 0.902 & 0.913 & \textbf{0.913}\,(8) & $-0.004$ & 0.567 \\
- & Mistral-7B & 0.728 & 0.750 & 0.779 & \textbf{0.779}\,(8) & \sd{$-0.051$}\pstarstarstar & $8.3\mathrm{e}{-05}$ \\
+ & Mistral-7B & 0.728 & 0.750 & 0.779 & \textbf{0.779}\,(8) & \sd{$-0.051$}\pstarstarstar & $9.3\mathrm{e}{-05}$ \\
  & Granite-3.1-8B & 0.708 & 0.732 & 0.790 & \textbf{0.790}\,(8) & \sd{$-0.082$}\pstarstarstar & $5.8\mathrm{e}{-10}$ \\
  & DeepSeek-V4-Flash & 0.951 & 0.961 & 0.959 & \textbf{0.961}\,(zero) & $-0.010$ & 0.064 \\
 \bottomrule
@@ -72,9 +73,11 @@ Task & Model & Readout & loop.0 & loop.8 & best loop & $\Delta$ (readout $-$ loo
 \begin{table*}[t]
 \centering
 \caption{\textbf{Readout probe-placement sweeps} (18 cells, all batch 8):
-best mid-depth tap vs the final-layer readout, paired McNemar on identical
-rows. \emph{Layers} = stack depth (28/36/36/32/40/43); taps are residual-layer
-indices. \emph{Plateau onset} = first swept layer within
+best mid-depth tap vs the final-layer readout. $\Delta=$ displayed best $-$
+displayed final (per-seed means). $p$ is paired McNemar on 4-seed vote
+(mean--vote can differ by ${\sim}$1pt). RuleTaker finals are this layer-sweep,
+not Table~\ref{tab:main}. \emph{Layers} = stack depth
+(28/36/36/32/40/43). \emph{Plateau onset} = first swept layer within
 1\,pt of the final-layer readout --- a lightweight readout extracts nearly as
 much label information from there on as from the final residual; at
 DeepSeek-V4 this happens by L22/42 (52\% depth)
@@ -92,60 +95,33 @@ lose significantly.}
 Task & Model & \# & Tap & Dep. & Plateau & best & final & $\Delta$ & $p$ \\
 \midrule
 \multirow{6}{*}{BoolQ}
-  & Qwen3-0.6B & 28 & L18 & 64\% & L18 (67\%) &0.761 & 0.746 & $+0.010$ & 0.18 \\
-  & Qwen3-4B   & 36 & L24 & 67\% & L24 (69\%) &0.868 & 0.856 & \sd{+0.011}\pstar & 0.038 \\
+  & Qwen3-0.6B & 28 & L18 & 64\% & L18 (67\%) &0.761 & 0.746 & $+0.015$ & 0.18 \\
+  & Qwen3-4B   & 36 & L24 & 67\% & L24 (69\%) &0.868 & 0.856 & \sd{+0.012}\pstar & 0.038 \\
   & Qwen3-8B   & 36 & L30 & 83\% & L24 (69\%) &0.889 & 0.878 & \sd{+0.011}\pstar & 0.016 \\
   & Mistral-7B & 32 & L16 & 50\% & \sd{L16 (52\%)} &0.863 & 0.841 & \sd{+0.022}\pstarstarstar & $1.1\mathrm{e}{-04}$ \\
-  & Granite-3.1-8B & 40 & L20 & 51\% & \sd{L17 (44\%)} &0.868 & 0.854 & \sd{+0.018}\pstarstar & $1.0\mathrm{e}{-03}$ \\
-  & DeepSeek-V4-Flash & 43 & L36 & 86\% & \sd{L22 (52\%)} &0.900 & 0.896 & $+0.005$ & 0.20 \\
+  & Granite-3.1-8B & 40 & L20 & 51\% & \sd{L17 (44\%)} &0.868 & 0.854 & \sd{+0.014}\pstarstar & $1.0\mathrm{e}{-03}$ \\
+  & DeepSeek-V4-Flash & 43 & L36 & 86\% & \sd{L22 (52\%)} &0.900 & 0.896 & $+0.004$ & 0.20 \\
 \midrule
 \multirow{6}{*}{RuleTaker}
-  & Qwen3-0.6B & 28 & L18 & 64\% & \sd{L13 (48\%)} &0.688 & 0.650 & \sd{+0.036}\pstar & 0.020 \\
-  & Qwen3-4B   & 36 & L24 & 67\% & L24 (69\%) &0.781 & 0.744 & \sd{+0.038}\pstarstar & $2.8\mathrm{e}{-03}$ \\
-  & Qwen3-8B   & 36 & L24 & 67\% & L24 (69\%) &0.778 & 0.758 & \sd{+0.025}\pstar & 0.040 \\
+  & Qwen3-0.6B & 28 & L18 & 64\% & \sd{L13 (48\%)} &0.688 & 0.650 & \sd{+0.038}\pstar & 0.020 \\
+  & Qwen3-4B   & 36 & L24 & 67\% & L24 (69\%) &0.781 & 0.744 & \sd{+0.037}\pstarstar & $2.8\mathrm{e}{-03}$ \\
+  & Qwen3-8B   & 36 & L24 & 67\% & L24 (69\%) &0.778 & 0.758 & \sd{+0.020}\pstar & 0.040 \\
   & Mistral-7B & 32 & L18 & 56\% & \sd{L11 (35\%)} &0.702 & 0.643 & \sd{+0.059}\pstarstarstar & $5.2\mathrm{e}{-05}$ \\
   & Granite-3.1-8B & 40 & L20 & 51\% & L20 (51\%) &0.816 & 0.805 & $+0.011$ & 0.37 \\
-  & DeepSeek-V4-Flash & 43 & L29 & 67\% & \sd{L22 (52\%)} &0.776 & 0.765 & $+0.021$ & 0.057 \\
+  & DeepSeek-V4-Flash & 43 & L29 & 67\% & \sd{L22 (52\%)} &0.776 & 0.765 & $+0.011$ & 0.057 \\
 \midrule
 \multirow{6}{*}{ARC-Challenge}
-  & Qwen3-0.6B & 28 & L26 & 93\% & L26 (96\%) &0.500 & 0.492 & $+0.013$ & 0.082 \\
-  & Qwen3-4B   & 36 & L29 & 81\% & L24 (69\%) &0.856 & 0.841 & \sd{+0.022}\pstarstarstar & $2.2\mathrm{e}{-04}$ \\
-  & Qwen3-8B   & 36 & L35 & 97\% & L24 (69\%) &0.909 & 0.909 & $+0.001$ & 1.00 \\
+  & Qwen3-0.6B & 28 & L26 & 93\% & L26 (96\%) &0.500 & 0.492 & $+0.008$ & 0.082 \\
+  & Qwen3-4B   & 36 & L29 & 81\% & L24 (69\%) &0.856 & 0.841 & \sd{+0.015}\pstarstarstar & $2.2\mathrm{e}{-04}$ \\
+  & Qwen3-8B   & 36 & L35 & 97\% & L24 (69\%) &0.909 & 0.909 & $0.000$ & 1.00 \\
   & Mistral-7B & 32 & L20 & 63\% & L18 (58\%) &0.741 & 0.728 & $+0.013$ & 0.50 \\
   & Granite-3.1-8B & 40 & L39 & 100\% & L39 (100\%) &0.708 & 0.708 & $0.000$ & --- \\
-  & DeepSeek-V4-Flash & 43 & L42 & 98\% & \sd{L22 (52\%)} &0.951 & 0.951 & $-0.005$ & 0.29 \\
+  & DeepSeek-V4-Flash & 43 & L42 & 98\% & \sd{L22 (52\%)} &0.951 & 0.951 & $0.000$ & --- \\
 \bottomrule
 \end{tabular}%
 }
 \end{table*}
 
-\begin{table*}[t]
-\centering
-\caption{\textbf{What each access to the frozen residual costs} (economics
-orientation, not a benchmark). Status stamps every row: ``measured'' = our run
-protocol; ``projected'' = forward arithmetic we did not run. Readout \& scoring-loop are
-the same single pass at equal context ---
-the readout's structural gap is \textbf{no generation}, not layer-skipping.
-Early-exit serving is prior art for any ``skip the tail'' claim; a mid-depth
-readout being accurate is not itself an early-exit result.}
-\label{tab:cost}
-\small
-\begin{tabular}{@{}lccc@{}}
-\toprule
-Access & Cost shape & Generates? & Status \\
-\midrule
-readout (final tap) & 1 fwd , short ctx & no & measured \\
-scoring loop ``.8'' & 1 fwd, long ctx & no & measured \\
-early-exit decode & 1 fwd, tail truncated & yes & projected / prior art \\
-decode / output & $K$ fwds (per token) & yes & measured (no self-stop) \\
-\bottomrule
-\end{tabular}
-
-\smallskip
-\noindent\emph{Note.} The decode row \emph{is} measured: greedy decode from
-the Answer: prompt never self-terminates (25/25 hit the 300-token cap at 0.6B;
-7/8 hit the 1000-token cap at DeepSeek-V4).
-\end{table*}
 
 \begin{table*}[t]
 \centering
