@@ -486,10 +486,13 @@ def to_vecs(model, tok, texts, layer, batch=24, label=""):
         mean_out.append((hs * am.float().unsqueeze(-1)).sum(1)
                         / am.float().sum(1).unsqueeze(-1))
 
+    tag = "to_vecs" if not label else label
+    log(f"  [{tag}] starting {total} rows / {n_batches} batches "
+        f"(b={batch}, pad={PAD_MAX}, layer={layer}); "
+        f"first forward may load kernels")
     for i, done in enumerate(range(0, total, batch)):
         forward_batch(texts[done:done + batch])
-        if (i + 1) % 20 == 0 or done + batch >= total:
-            tag = "to_vecs" if not label else label
+        if (i + 1) == 1 or (i + 1) % 20 == 0 or done + batch >= total:
             log(f"  [{tag}] {min(done + batch, total)}/{total} batches")
     return torch.cat(last_out, 0).numpy(), torch.cat(mean_out, 0).numpy()
 
@@ -511,6 +514,7 @@ def to_vecs_multi(model, tok, texts, layers, batch=24, label=""):
     layers = sorted(set(int(l) for l in layers))
     cut = max(layers)
     total = len(texts)
+    n_batches = (total + batch - 1) // batch
     # Per-layer accumulators of per-row vectors.
     last_out = {l: [] for l in layers}
     mean_out = {l: [] for l in layers}
@@ -577,10 +581,13 @@ def to_vecs_multi(model, tok, texts, layers, batch=24, label=""):
     #     sublayers; only the tail compute is dropped. Care: DSV4/FP8 paths
     #     and any final-norm/lm_head usage must be bypassed for readout-only
     #     forwards (we never call lm_head here, so this is fine).
+    tag = "to_vecs_multi" if not label else label
+    log(f"  [{tag}] starting {total} rows / {n_batches} batches "
+        f"(b={batch}, pad={PAD_MAX}, layers={layers}); "
+        f"first forward may load kernels")
     for i, done in enumerate(range(0, total, batch)):
         forward_batch(texts[done:done + batch])
-        if (i + 1) % 20 == 0 or done + batch >= total:
-            tag = "to_vecs_multi" if not label else label
+        if (i + 1) == 1 or (i + 1) % 20 == 0 or done + batch >= total:
             log(f"  [{tag}] {min(done + batch, total)}/{total} batches "
                 f"({len(layers)} layers/fwd)")
     return {l: (torch.cat(last_out[l], 0).numpy(),
