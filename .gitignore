@@ -6,6 +6,8 @@ _modal/
 .modal/
 .claude/
 .venv/
+.venv-runpod/
+runpod/
 cloud_bench_cache/
 results_4b_residuals/
 results.json
